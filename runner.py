@@ -4,12 +4,15 @@ import pandas as pd
 from openpyxl import load_workbook
 from openpyxl.styles import Alignment
 
-from scrapers.oracle.oracle_jobs_scraper import scrape_jobs
+from scrapers.estm.estm import scrape_jobs
 from scrapers.c40.c40 import scrape_c40_jobs
 
+# ======================================================
+# PATH SETUP
+# ======================================================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_DIR = os.path.join(BASE_DIR, "output")
-COMBINED_FILE = os.path.join(OUTPUT_DIR, "combined_jobs.xlsx")
+COMBINED_FILE = os.path.join(OUTPUT_DIR, "C40_Estm_Jobs.xlsx")
 
 FINAL_COLUMNS = [
     "Source",
@@ -44,22 +47,23 @@ def run_all_scrapers_and_combine():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     combined_rows = []
 
-    # ================= ORACLE =================
+    # ================= ESTM =================
     try:
-        oracle_df = scrape_jobs()
+        estm_df = scrape_jobs()
 
-        for _, row in oracle_df.iterrows():
+        for _, row in estm_df.iterrows():
+            link = row.get("Apply_Link", "")
+
             combined_rows.append({
-                "Source": "Oracle Careers",
-                "Title": row["Title"],
+                "Source": "ESTM",
+                "Title": row.get("Title"),
                 "Description": None,
                 "Matched_Vertical": None,
-                "Posting_Date": row["Posting_Date"],
-                "Apply_Link": f'=HYPERLINK("{row["Apply_Link"]}", "Apply")'
-                if row["Apply_Link"] else ""
+                "Posting_Date": row.get("Posting_Date"),
+                "Apply_Link": f'=HYPERLINK("{link}", "Apply")' if link else ""
             })
     except Exception:
-        print("❌ Oracle failed")
+        print("❌ ESTM failed")
         traceback.print_exc()
 
     # ================= C40 =================
@@ -69,11 +73,11 @@ def run_all_scrapers_and_combine():
         for _, row in c40_df.iterrows():
             combined_rows.append({
                 "Source": "C40",
-                "Title": row["Title"],
-                "Description": row["Description"],
-                "Matched_Vertical": row["Matched_Vertical"],
+                "Title": row.get("Title"),
+                "Description": row.get("Description"),
+                "Matched_Vertical": row.get("Matched_Vertical"),
                 "Posting_Date": None,
-                "Apply_Link": row["Apply_Link"]
+                "Apply_Link": row.get("Apply_Link")
             })
     except Exception:
         print("❌ C40 failed")

@@ -1,5 +1,3 @@
-# scrapers/oracle/oracle_jobs_scraper.py
-
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
@@ -10,12 +8,12 @@ import os
 import time
 
 # ======================================================
-# PATH SETUP (PROJECT LEVEL OUTPUT)
+# PATH SETUP
 # ======================================================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, "..", ".."))
 OUTPUT_DIR = os.path.join(PROJECT_ROOT, "output")
-OUTPUT_FILE = os.path.join(OUTPUT_DIR, "oracle_india_jobs.xlsx")
+OUTPUT_FILE = os.path.join(OUTPUT_DIR, "estm_jobs.xlsx")
 
 URL = (
     "https://estm.fa.em2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1/jobs"
@@ -32,14 +30,11 @@ def safe_text(parent, by, value):
 
 def get_driver():
     options = Options()
-
-    # REQUIRED FOR GITHUB ACTIONS
     options.add_argument("--headless=new")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
     options.add_argument("--window-size=1920,1080")
-
     return webdriver.Chrome(options=options)
 
 
@@ -58,7 +53,7 @@ def scrape_jobs():
     time.sleep(3)
 
     cards = driver.find_elements(By.CSS_SELECTOR, "div.job-grid-item__content")
-    print(f"✅ Found {len(cards)} Oracle jobs")
+    print(f"✅ Found {len(cards)} ESTM jobs")
 
     jobs = []
 
@@ -81,7 +76,7 @@ def scrape_jobs():
 
         if title or apply_link:
             jobs.append({
-                "Source": "Oracle Careers",
+                "Source": "ESTM",
                 "Title": title,
                 "Location": location,
                 "Posting_Date": posting_date,
@@ -105,7 +100,7 @@ def save_to_excel(df):
     )
 
     df.to_excel(OUTPUT_FILE, index=False, engine="openpyxl")
-    print(f"✅ Oracle Excel created: {OUTPUT_FILE}")
+    print(f"✅ ESTM Excel created: {OUTPUT_FILE}")
 
 
 def main():

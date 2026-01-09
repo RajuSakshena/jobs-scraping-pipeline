@@ -5,21 +5,14 @@ import re
 import pandas as pd
 from bs4 import BeautifulSoup
 from playwright.sync_api import sync_playwright
-from openpyxl import load_workbook
-from openpyxl.styles import Alignment
 
 # ======================================================
 # PATH SETUP
 # ======================================================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, "..", ".."))
-
+KEYWORDS_FILE = os.path.join(BASE_DIR, "keywords.json")
 CAREERS_URL = "https://c40.bamboohr.com/careers"
 BASE_URL = "https://c40.bamboohr.com"
-
-KEYWORDS_FILE = os.path.join(BASE_DIR, "keywords.json")
-OUTPUT_DIR = os.path.join(PROJECT_ROOT, "output")
-OUTPUT_FILE = os.path.join(OUTPUT_DIR, "c40_jobs.xlsx")
 
 
 def load_keywords():
@@ -90,35 +83,12 @@ def scrape_c40_jobs():
 
     if not jobs:
         print("❌ No C40 jobs extracted")
-        return pd.DataFrame()
+        return pd.DataFrame(columns=["Title", "Description", "Matched_Vertical", "Apply_Link"])
 
     df = pd.DataFrame(
         jobs,
         columns=["Title", "Description", "Matched_Vertical", "Apply_Link"]
     )
 
-    # Save Excel (optional output)
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
-    df.to_excel(OUTPUT_FILE, index=False, engine="openpyxl")
-
-    wb = load_workbook(OUTPUT_FILE)
-    ws = wb.active
-
-    ws.column_dimensions["A"].width = 55
-    ws.column_dimensions["B"].width = 120
-    ws.column_dimensions["C"].width = 30
-    ws.column_dimensions["D"].width = 50
-
-    for row in ws.iter_rows(min_row=2):
-        for cell in row:
-            cell.alignment = Alignment(wrap_text=True, vertical="top")
-
-    wb.save(OUTPUT_FILE)
-
-    print(f"✅ C40 Excel created: {OUTPUT_FILE}")
-
-    return df   # 🔥 THIS IS THE KEY FIX
-
-
-if __name__ == "__main__":
-    scrape_c40_jobs()
+    print(f"✅ C40 scraping completed, {len(df)} jobs found")
+    return df  # return only the DataFrame
