@@ -12,7 +12,7 @@ from scrapers.c40.c40 import scrape_c40_jobs
 # ======================================================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_DIR = os.path.join(BASE_DIR, "output")
-COMBINED_FILE = os.path.join(OUTPUT_DIR, "C40_Estm_Jobs.xlsx")
+COMBINED_FILE = os.path.join(OUTPUT_DIR, "Combined.xlsx")
 
 FINAL_COLUMNS = [
     "Source",
