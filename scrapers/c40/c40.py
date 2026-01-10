@@ -4,17 +4,26 @@ import json
 import re
 import pandas as pd
 from bs4 import BeautifulSoup
-from playwright.sync_api import sync_playwright
+
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 # ======================================================
 # PATH SETUP
 # ======================================================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 KEYWORDS_FILE = os.path.join(BASE_DIR, "keywords.json")
+
 CAREERS_URL = "https://c40.bamboohr.com/careers"
 BASE_URL = "https://c40.bamboohr.com"
 
 
+# ======================================================
+# HELPERS
+# ======================================================
 def load_keywords():
     with open(KEYWORDS_FILE, "r", encoding="utf-8") as f:
         return json.load(f)
@@ -31,19 +40,34 @@ def match_verticals(title, description, keywords):
     return ", ".join(matched) if matched else "N/A"
 
 
+def get_driver():
+    options = Options()
+    options.add_argument("--headless=new")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-gpu")
+    options.add_argument("--window-size=1920,1080")
+
+    return webdriver.Chrome(options=options)
+
+
+# ======================================================
+# MAIN SCRAPER
+# ======================================================
 def scrape_c40_jobs():
     keywords = load_keywords()
     jobs = []
 
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        page = browser.new_page()
+    driver = get_driver()
+    wait = WebDriverWait(driver, 30)
 
-        page.goto(CAREERS_URL, timeout=60000)
-        page.wait_for_load_state("networkidle")
-        time.sleep(2)
+    try:
+        driver.get(CAREERS_URL)
 
-        soup = BeautifulSoup(page.content(), "html.parser")
+        wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
+        time.sleep(3)
+
+        soup = BeautifulSoup(driver.page_source, "html.parser")
 
         job_links = []
         for a in soup.select("a[href^='/careers/']"):
@@ -52,19 +76,20 @@ def scrape_c40_jobs():
             if href and title:
                 job_links.append((BASE_URL + href, title))
 
+        # remove duplicates
         job_links = list(dict.fromkeys(job_links))
 
         for job_url, fallback_title in job_links:
-            page.goto(job_url, timeout=60000)
-            page.wait_for_load_state("networkidle")
+            driver.get(job_url)
+            wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
             time.sleep(2)
 
-            job_soup = BeautifulSoup(page.content(), "html.parser")
+            job_soup = BeautifulSoup(driver.page_source, "html.parser")
 
-            title_tag = job_soup.find("h3", class_="fabric-oxx0vk-root")
+            title_tag = job_soup.find("h3")
             title = title_tag.get_text(strip=True) if title_tag else fallback_title
 
-            desc_blocks = job_soup.find_all("div", class_="fabric-95l02p-description")
+            desc_blocks = job_soup.find_all("div", class_=re.compile("description"))
             description = "\n".join(d.get_text(strip=True) for d in desc_blocks)
 
             if not description:
@@ -79,7 +104,8 @@ def scrape_c40_jobs():
                 "Apply_Link": f'=HYPERLINK("{job_url}", "{title.replace(chr(34), "")}")'
             })
 
-        browser.close()
+    finally:
+        driver.quit()
 
     if not jobs:
         print("❌ No C40 jobs extracted")
@@ -91,4 +117,4 @@ def scrape_c40_jobs():
     )
 
     print(f"✅ C40 scraping completed, {len(df)} jobs found")
-    return df  # return only the DataFrame
+    return df

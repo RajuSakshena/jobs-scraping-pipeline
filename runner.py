@@ -4,8 +4,9 @@ import pandas as pd
 from openpyxl import load_workbook
 from openpyxl.styles import Alignment
 
-from scrapers.estm.estm import scrape_jobs
+from scrapers.estm.estm import scrape_jobs as scrape_estm_jobs
 from scrapers.c40.c40 import scrape_c40_jobs
+from scrapers.developmentaid.developmentaid import scrape_jobs as scrape_developmentaid_jobs
 
 # ======================================================
 # PATH SETUP
@@ -23,7 +24,9 @@ FINAL_COLUMNS = [
     "Apply_Link"
 ]
 
-
+# ======================================================
+# EXCEL FORMAT
+# ======================================================
 def format_excel(path):
     wb = load_workbook(path)
     ws = wb.active
@@ -42,18 +45,19 @@ def format_excel(path):
 
     wb.save(path)
 
-
+# ======================================================
+# MAIN RUNNER
+# ======================================================
 def run_all_scrapers_and_combine():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     combined_rows = []
 
     # ================= ESTM =================
     try:
-        estm_df = scrape_jobs()
+        estm_df = scrape_estm_jobs()
 
         for _, row in estm_df.iterrows():
             link = row.get("Apply_Link", "")
-
             combined_rows.append({
                 "Source": "ESTM",
                 "Title": row.get("Title"),
@@ -83,8 +87,27 @@ def run_all_scrapers_and_combine():
         print("❌ C40 failed")
         traceback.print_exc()
 
+    # ================= DevelopmentAid =================
+    try:
+        da_df = scrape_developmentaid_jobs()
+
+        for _, row in da_df.iterrows():
+            link = row.get("Apply_Link", "")
+            combined_rows.append({
+                "Source": "DevelopmentAid",
+                "Title": row.get("Title"),
+                "Description": row.get("Description"),
+                "Matched_Vertical": row.get("Category"),
+                "Posting_Date": None,
+                "Apply_Link": f'=HYPERLINK("{link}", "Apply")' if link else ""
+            })
+    except Exception:
+        print("❌ DevelopmentAid failed")
+        traceback.print_exc()
+
+    # ================= FINAL EXPORT =================
     if not combined_rows:
-        print("❌ No data collected")
+        print("❌ No data collected from any scraper")
         return
 
     combined_df = pd.DataFrame(combined_rows, columns=FINAL_COLUMNS)
@@ -94,6 +117,8 @@ def run_all_scrapers_and_combine():
 
     print(f"✅ Combined Excel created successfully: {COMBINED_FILE}")
 
-
+# ======================================================
+# ENTRY POINT
+# ======================================================
 if __name__ == "__main__":
     run_all_scrapers_and_combine()
