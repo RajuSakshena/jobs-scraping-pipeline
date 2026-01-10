@@ -33,7 +33,7 @@ st.markdown("### Available Download")
 if os.path.exists(COMBINED_PATH):
     with open(COMBINED_PATH, "rb") as file:
         st.download_button(
-            label="Download Combined Jobs (ESTM & C40)",
+            label="Download Combined Jobs (ESTM, Developmentaid & C40)",
             data=file,
             file_name=COMBINED_FILE,
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
