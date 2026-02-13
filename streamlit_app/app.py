@@ -80,6 +80,18 @@ div.stButton > button:first-child:hover {
     align-items: center;
     gap: 15px;
 }
+.logo-container {
+    width: 120px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+}
+.logo-container img {
+    max-height: 34px;
+    width: auto;
+    object-fit: contain;
+}
 
 /* Footer from scraper.html */
 footer {
