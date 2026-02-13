@@ -49,7 +49,7 @@ body {
 div.stButton > button:first-child {
     display: inline-block;
     padding: 0.8rem 1.5rem;
-    background: #fff;
+    background: #58a648;
     color: #fff !important;
     font-weight: bold;
     border-radius: 6px;
