@@ -1,4 +1,4 @@
-```python
+
 import streamlit as st
 import os
 
@@ -167,4 +167,4 @@ st.markdown("""
     <p>© 2025 The Metropolitan Institute. All Rights Reserved.</p>
 </div>
 """, unsafe_allow_html=True)
-```
+
