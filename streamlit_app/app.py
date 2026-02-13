@@ -72,7 +72,7 @@ div.stDownloadButton > button:first-child:hover {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 1.5rem 5% 1rem 5%;
+    padding: 1rem 5% 0.5rem 5%;
     background: #ffffff;
 }
 .nav-right {
@@ -82,7 +82,7 @@ div.stDownloadButton > button:first-child:hover {
 }
 .logo-container {
     width: 150px;
-    height: 60px;
+    height: 50px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -93,7 +93,7 @@ div.stDownloadButton > button:first-child:hover {
     box-sizing: border-box;
 }
 .logo-container img {
-    max-height: 50px;
+    max-height: 40px;
     width: auto;
     object-fit: contain;
 }
@@ -176,6 +176,7 @@ footer {
 .content .stDownloadButton {
     display: flex;
     justify-content: center;
+    margin: 0 auto;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -208,8 +209,8 @@ st.markdown("""
 # ------------------------------------------------------
 st.markdown('<div class="content">', unsafe_allow_html=True)
 
-st.markdown('<h1>Job Scraper Dashboard</h1>', unsafe_allow_html=True)
-st.markdown('<p>Download the latest consolidated job listings collected from multiple sources.</p>', unsafe_allow_html=True)
+st.markdown('<h1 style="text-align: center;">Job Scraper Dashboard</h1>', unsafe_allow_html=True)
+st.markdown('<p style="text-align: center;">Download the latest consolidated job listings collected from multiple sources.</p>', unsafe_allow_html=True)
 
 # ------------------------------------------------------
 # Path Configuration
@@ -224,7 +225,7 @@ COMBINED_PATH = os.path.join(OUTPUT_DIR, COMBINED_FILE)
 # ------------------------------------------------------
 # Download Section
 # ------------------------------------------------------
-st.markdown('<h3>Available Download</h3>', unsafe_allow_html=True)
+st.markdown('<h3 style="text-align: center;">Available Download</h3>', unsafe_allow_html=True)
 
 if os.path.exists(COMBINED_PATH):
     with open(COMBINED_PATH, "rb") as file:
