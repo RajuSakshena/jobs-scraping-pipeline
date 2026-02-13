@@ -10,7 +10,11 @@ def get_base64_of_bin_file(bin_file):
         data = f.read()
     return base64.b64encode(data).decode()
 
-logo_base64 = get_base64_of_bin_file('TMI.png')
+APP_DIR = os.path.dirname(os.path.abspath(__file__))
+LOGO_PATH = os.path.join(APP_DIR, "TMI.png")
+
+logo_base64 = get_base64_of_bin_file(LOGO_PATH)
+
 
 # ------------------------------------------------------
 # Streamlit Page Config
