@@ -52,19 +52,19 @@ body {
 div.stButton > button:first-child {
     display: inline-block;
     padding: 0.8rem 1.5rem;
-    background: #58a648;
-    color: #fff !important;
+    background: #fff;
+    color: #000 !important;
     font-weight: bold;
     border-radius: 6px;
     text-decoration: none;
-    border: none;
+    border: 1px solid #000;
     cursor: pointer;
     transition: 0.3s;
 }
 div.stButton > button:first-child:hover {
-    background: #fff;
-    color: #58a648 !important;
-    border: 1px solid #58a648;
+    background: #000;
+    color: #fff !important;
+    border: 1px solid #000;
 }
 
 /* Navbar from scraper.html */
@@ -79,6 +79,21 @@ div.stButton > button:first-child:hover {
     display: flex;
     align-items: center;
     gap: 15px;
+}
+.logo-container {
+    width: 150px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #ffffff;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+}
+.logo-container img {
+    max-height: 40px;
+    width: auto;
+    object-fit: contain;
 }
 
 /* Footer from scraper.html */
@@ -140,10 +155,14 @@ footer {
 
 /* Content styling to match centered website layout */
 .content {
-    padding: 3rem 5% 0 5%;
+    padding: 4rem 5% 4rem 5%;
     font-family: 'Inter', sans-serif;
-    max-width: 1200px;
+    max-width: 800px;
     margin: 0 auto;
+    text-align: center;
+}
+.content > * {
+    margin-bottom: 2rem;
 }
 </style>
 """, unsafe_allow_html=True)
