@@ -52,19 +52,18 @@ body {
 div.stButton > button:first-child {
     display: inline-block;
     padding: 0.8rem 1.5rem;
-    background: #58a648;
-    color: #fff !important;
+    background: white;
+    color: black !important;
     font-weight: bold;
     border-radius: 6px;
     text-decoration: none;
-    border: none;
+    border: 1px solid black;
     cursor: pointer;
-    transition: 0.3s;
 }
 div.stButton > button:first-child:hover {
-    background: #fff;
-    color: #58a648 !important;
-    border: 1px solid #58a648;
+    background: white;
+    color: black !important;
+    border: 1px solid black;
 }
 
 /* Navbar from scraper.html */
@@ -81,14 +80,13 @@ div.stButton > button:first-child:hover {
     gap: 15px;
 }
 .logo-container {
-    width: 120px;
-    height: 40px;
+    height: 100%;
     display: flex;
     align-items: center;
     justify-content: flex-start;
 }
 .logo-container img {
-    max-height: 34px;
+    max-height: 100%;
     width: auto;
     object-fit: contain;
 }
