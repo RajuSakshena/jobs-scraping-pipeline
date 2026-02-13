@@ -1,4 +1,3 @@
-
 import streamlit as st
 import os
 
@@ -11,92 +10,152 @@ st.set_page_config(
 )
 
 # ------------------------------------------------------
-# GLOBAL CSS (Navbar + Footer Styling)
+# GLOBAL CSS (Including styles from scraper.html)
 # ------------------------------------------------------
 st.markdown("""
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+""", unsafe_allow_html=True)
+
+st.markdown("""
 <style>
-
-/* Remove default padding */
+/* Force white background and remove dark styling */
+.stApp {
+    background-color: white !important;
+    color: #0b3c5d !important;
+}
+body {
+    background-color: white !important;
+    font-family: 'Inter', sans-serif !important;
+    color: #0b3c5d;
+}
 .block-container {
-    padding-top: 0rem;
-    padding-left: 0rem;
-    padding-right: 0rem;
+    padding-top: 0rem !important;
+    padding-left: 0rem !important;
+    padding-right: 0rem !important;
 }
 
-/* NAVBAR */
+/* Navbar from scraper.html */
 .navbar {
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    padding:14px 40px;
-    background:#ffffff;
-    border-bottom:1px solid #eaeaea;
-    font-family: sans-serif;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 5%;
+    background: #ffffff;
 }
-.nav-right a{
-    padding:6px 18px;
-    margin-left:12px;
-    border-radius:6px;
-    text-decoration:none;
-    font-weight:600;
+.nav-right {
+    display: flex;
+    align-items: center;
+    gap: 15px;
 }
-.login-btn{
-    background:#58a648;
-    color:white;
+.donate-header-btn {
+    padding: 0.5rem 1.5rem;
+    font-size: 0.9rem;
+    background: #0b3c5d;
+    color: #fff;
+    text-decoration: none;
+    border-radius: 6px;
 }
-.donate-btn{
-    background:#0b3c5d;
-    color:white;
+.donate-header-btn:hover {
+    background: #58a648;
 }
 
-/* HERO HEADER */
+/* Footer from scraper.html */
+footer {
+    background: #003055;
+    color: #cbd5e1;
+    padding: 4rem 5% 2rem;
+    margin-top: 4rem;
+    font-family: 'Inter', sans-serif;
+}
+.footer-grid {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr 1fr 1.5fr;
+    gap: 2rem;
+    margin-bottom: 3rem;
+}
+.footer-col h4 {
+    color: #fff;
+    margin-bottom: 1.5rem;
+}
+.footer-col ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+.footer-col li {
+    margin-bottom: 0.75rem;
+}
+.footer-col a {
+    color: #cbd5e1;
+    text-decoration: none;
+    transition: 0.3s;
+}
+.footer-col a:hover {
+    color: #58a648;
+}
+.donate-box {
+    background: rgba(255,255,255,0.1);
+    padding: 1.5rem;
+    border-radius: 12px;
+    text-align: center;
+}
+.donate-btn {
+    display: inline-block;
+    padding: 0.8rem 1.5rem;
+    background: #58a648;
+    color: #fff !important;
+    font-weight: bold;
+    border-radius: 6px;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    transition: 0.3s;
+}
+.donate-btn:hover {
+    background: #fff;
+    color: #58a648 !important;
+}
+.footer-bottom {
+    border-top: 1px solid rgba(255,255,255,0.1);
+    padding-top: 2rem;
+    text-align: center;
+    font-size: 0.9rem;
+}
+
+/* Hero from original app.py */
 .hero {
-    background:#083a5c;
-    text-align:center;
-    padding:60px 10px;
-    color:white;
-    font-family:sans-serif;
+    background: #083a5c;
+    text-align: center;
+    padding: 60px 10px;
+    color: white;
+    font-family: 'Inter', sans-serif;
 }
 
-/* MAIN CONTENT */
+/* Content styling to match centered website layout */
 .content {
-    padding:40px;
-    text-align:center;
-    font-family:sans-serif;
+    padding: 3rem 5%;
+    font-family: 'Inter', sans-serif;
+    max-width: 1200px;
+    margin: 0 auto;
 }
-
-/* FOOTER */
-.footer {
-    background:#003055;
-    color:#cbd5e1;
-    padding:50px 40px;
-    margin-top:60px;
-    font-family:sans-serif;
-}
-.footer a {
-    color:#cbd5e1;
-    text-decoration:none;
-}
-
 </style>
 """, unsafe_allow_html=True)
 
-
 # ------------------------------------------------------
-# NAVBAR
+# NAVBAR from scraper.html
 # ------------------------------------------------------
 st.markdown("""
-<div class="navbar">
-    <div>
-        <img src="https://via.placeholder.com/90x40" height="40">
+<nav class="navbar">
+    <div class="logo-container">
+        <a href="index.html"><img src="TMI.png" alt="TMI Logo"></a>
     </div>
     <div class="nav-right">
-        <a class="login-btn">Login</a>
-        <a class="donate-btn">Donate</a>
+        <button id="google-login" class="donate-btn">Login</button>
+        <button id="logout-btn" class="donate-btn" style="display:none;">Logout</button>
+        <a href="giving.html" class="btn donate-header-btn">Donate</a>
     </div>
-</div>
+</nav>
 """, unsafe_allow_html=True)
-
 
 # ------------------------------------------------------
 # HERO HEADER
@@ -107,7 +166,6 @@ st.markdown("""
     <p>We find the funding. You do the work.</p>
 </div>
 """, unsafe_allow_html=True)
-
 
 # ------------------------------------------------------
 # CONTENT SECTION
@@ -145,26 +203,42 @@ else:
 
 st.markdown("</div>", unsafe_allow_html=True)
 
-
 # ------------------------------------------------------
-# FOOTER
+# FOOTER from scraper.html
 # ------------------------------------------------------
 st.markdown("""
-<div class="footer">
-    <p><b>The Metropolitan Institute</b></p>
-    <p>
-    The Metropolitan Institute is a think-and-do tank dedicated to building aspirational 
-    and resilient regions.
-    </p>
-
-    <br>
-
-    <p><b>Quick Links</b></p>
-    <p>About Us | Our Research | Contact</p>
-
-    <br>
-
-    <p>© 2025 The Metropolitan Institute. All Rights Reserved.</p>
-</div>
+<footer>
+    <div class="footer-grid">
+        <div class="footer-col">
+            <img src="TMI.png" style="height:50px; margin-bottom:1rem;">
+            <p>The Metropolitan Institute is a think-and-do tank dedicated to building aspirational and resilient regions.</p>
+        </div>
+        <div class="footer-col">
+            <h4>Quick Links</h4>
+            <ul>
+                <li><a href="about.html">About Us</a></li>
+                <li><a href="research.html">Our Research</a></li>
+                <li><a href="contact.html">Contact</a></li>
+            </ul>
+        </div>
+        <div class="footer-col">
+            <h4>Connect</h4>
+            <ul>
+                <li><a href="https://x.com/TheMetroInst" target="_blank">Twitter / X</a></li>
+                <li><a href="https://www.linkedin.com/company/the-metropolitan-institute" target="_blank">LinkedIn</a></li>
+                <li><a href="https://www.instagram.com/themetropolitaninstitute" target="_blank">Instagram</a></li>
+            </ul>
+        </div>
+        <div class="footer-col">
+            <div class="donate-box">
+                <h4>Support Our Mission</h4>
+                <p>Help us bridge the gap between policy and people.</p>
+                <a href="giving.html" class="donate-btn">Donate Now</a>
+            </div>
+        </div>
+    </div>
+    <div class="footer-bottom">
+        © 2025 The Metropolitan Institute. All Rights Reserved.
+    </div>
+</footer>
 """, unsafe_allow_html=True)
-
