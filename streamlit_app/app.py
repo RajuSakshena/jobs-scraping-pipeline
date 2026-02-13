@@ -66,13 +66,6 @@ div.stDownloadButton > button:first-child:hover {
     color: #fff !important;
     border: 1px solid #000;
 }
-div.stDownloadButton {
-    text-align: center;
-}
-div.stAlert {
-    margin: 0 auto;
-    width: fit-content;
-}
 
 /* Navbar from scraper.html */
 .navbar {
@@ -234,16 +227,18 @@ with col2:
     # ------------------------------------------------------
     st.markdown('<h3 style="text-align: center;">Available Download</h3>', unsafe_allow_html=True)
 
-    if os.path.exists(COMBINED_PATH):
-        with open(COMBINED_PATH, "rb") as file:
-            st.download_button(
-                label="Download Combined Jobs (ESTM, Developmentaid & C40)",
-                data=file,
-                file_name=COMBINED_FILE,
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
-    else:
-        st.warning("Job data is not available at the moment. Please try again later.")
+    col_btn1, col_btn2, col_btn3 = st.columns([1,2,1])
+    with col_btn2:
+        if os.path.exists(COMBINED_PATH):
+            with open(COMBINED_PATH, "rb") as file:
+                st.download_button(
+                    label="Download Combined Jobs (ESTM, Developmentaid & C40)",
+                    data=file,
+                    file_name=COMBINED_FILE,
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+        else:
+            st.warning("Job data is not available at the moment. Please try again later.")
 
 # ------------------------------------------------------
 # FOOTER from scraper.html (without donate button)
