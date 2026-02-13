@@ -42,14 +42,14 @@ body {
     color: #0b3c5d;
 }
 .block-container {
-    padding-top: 0rem !important;
+    padding-top: 1rem !important;
     padding-left: 0rem !important;
     padding-right: 0rem !important;
     padding-bottom: 0rem !important;
 }
 
 /* Override Streamlit button for download visibility */
-div.stButton > button:first-child {
+div.stDownloadButton > button:first-child {
     display: inline-block;
     padding: 0.8rem 1.5rem;
     background: #fff;
@@ -61,7 +61,7 @@ div.stButton > button:first-child {
     cursor: pointer;
     transition: 0.3s;
 }
-div.stButton > button:first-child:hover {
+div.stDownloadButton > button:first-child:hover {
     background: #000;
     color: #fff !important;
     border: 1px solid #000;
@@ -72,7 +72,7 @@ div.stButton > button:first-child:hover {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 1rem 5%;
+    padding: 1.5rem 5% 1rem 5%;
     background: #ffffff;
 }
 .nav-right {
@@ -82,16 +82,18 @@ div.stButton > button:first-child:hover {
 }
 .logo-container {
     width: 150px;
-    height: 50px;
+    height: 60px;
     display: flex;
     align-items: center;
     justify-content: center;
     background: #ffffff;
     border: 1px solid #e0e0e0;
     border-radius: 4px;
+    padding: 5px;
+    box-sizing: border-box;
 }
 .logo-container img {
-    max-height: 40px;
+    max-height: 50px;
     width: auto;
     object-fit: contain;
 }
@@ -164,6 +166,17 @@ footer {
 .content > * {
     margin-bottom: 2rem;
 }
+.content h1, .content h3, .content p {
+    text-align: center;
+}
+.content .stAlert {
+    margin: 0 auto;
+    width: fit-content;
+}
+.content .stDownloadButton {
+    display: flex;
+    justify-content: center;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -195,8 +208,8 @@ st.markdown("""
 # ------------------------------------------------------
 st.markdown('<div class="content">', unsafe_allow_html=True)
 
-st.title("Job Scraper Dashboard")
-st.markdown("Download the latest consolidated job listings collected from multiple sources.")
+st.markdown('<h1>Job Scraper Dashboard</h1>', unsafe_allow_html=True)
+st.markdown('<p>Download the latest consolidated job listings collected from multiple sources.</p>', unsafe_allow_html=True)
 
 # ------------------------------------------------------
 # Path Configuration
@@ -211,7 +224,7 @@ COMBINED_PATH = os.path.join(OUTPUT_DIR, COMBINED_FILE)
 # ------------------------------------------------------
 # Download Section
 # ------------------------------------------------------
-st.markdown("### Available Download")
+st.markdown('<h3>Available Download</h3>', unsafe_allow_html=True)
 
 if os.path.exists(COMBINED_PATH):
     with open(COMBINED_PATH, "rb") as file:
