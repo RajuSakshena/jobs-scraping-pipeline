@@ -66,6 +66,13 @@ div.stDownloadButton > button:first-child:hover {
     color: #fff !important;
     border: 1px solid #000;
 }
+div.stDownloadButton {
+    text-align: center;
+}
+div.stAlert {
+    margin: 0 auto;
+    width: fit-content;
+}
 
 /* Navbar from scraper.html */
 .navbar {
@@ -207,38 +214,36 @@ st.markdown("""
 # ------------------------------------------------------
 # CONTENT SECTION
 # ------------------------------------------------------
-st.markdown('<div class="content">', unsafe_allow_html=True)
+col1, col2, col3 = st.columns([1,2,1])
+with col2:
+    st.markdown('<h1 style="text-align: center;">Job Scraper Dashboard</h1>', unsafe_allow_html=True)
+    st.markdown('<p style="text-align: center;">Download the latest consolidated job listings collected from multiple sources.</p>', unsafe_allow_html=True)
 
-st.markdown('<h1 style="text-align: center;">Job Scraper Dashboard</h1>', unsafe_allow_html=True)
-st.markdown('<p style="text-align: center;">Download the latest consolidated job listings collected from multiple sources.</p>', unsafe_allow_html=True)
+    # ------------------------------------------------------
+    # Path Configuration
+    # ------------------------------------------------------
+    APP_DIR = os.path.dirname(os.path.abspath(__file__))
+    PROJECT_ROOT = os.path.dirname(APP_DIR)
+    OUTPUT_DIR = os.path.join(PROJECT_ROOT, "output")
 
-# ------------------------------------------------------
-# Path Configuration
-# ------------------------------------------------------
-APP_DIR = os.path.dirname(os.path.abspath(__file__))
-PROJECT_ROOT = os.path.dirname(APP_DIR)
-OUTPUT_DIR = os.path.join(PROJECT_ROOT, "output")
+    COMBINED_FILE = "Combined.xlsx"
+    COMBINED_PATH = os.path.join(OUTPUT_DIR, COMBINED_FILE)
 
-COMBINED_FILE = "Combined.xlsx"
-COMBINED_PATH = os.path.join(OUTPUT_DIR, COMBINED_FILE)
+    # ------------------------------------------------------
+    # Download Section
+    # ------------------------------------------------------
+    st.markdown('<h3 style="text-align: center;">Available Download</h3>', unsafe_allow_html=True)
 
-# ------------------------------------------------------
-# Download Section
-# ------------------------------------------------------
-st.markdown('<h3 style="text-align: center;">Available Download</h3>', unsafe_allow_html=True)
-
-if os.path.exists(COMBINED_PATH):
-    with open(COMBINED_PATH, "rb") as file:
-        st.download_button(
-            label="Download Combined Jobs (ESTM, Developmentaid & C40)",
-            data=file,
-            file_name=COMBINED_FILE,
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-else:
-    st.warning("Job data is not available at the moment. Please try again later.")
-
-st.markdown("</div>", unsafe_allow_html=True)
+    if os.path.exists(COMBINED_PATH):
+        with open(COMBINED_PATH, "rb") as file:
+            st.download_button(
+                label="Download Combined Jobs (ESTM, Developmentaid & C40)",
+                data=file,
+                file_name=COMBINED_FILE,
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+    else:
+        st.warning("Job data is not available at the moment. Please try again later.")
 
 # ------------------------------------------------------
 # FOOTER from scraper.html (without donate button)
