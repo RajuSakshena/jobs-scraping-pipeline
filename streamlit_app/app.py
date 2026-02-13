@@ -3,22 +3,24 @@ import os
 import base64
 
 # ------------------------------------------------------
-# Base64 Image Encoder
-# ------------------------------------------------------
-def get_base64_of_bin_file(bin_file):
-    with open(bin_file, 'rb') as f:
-        data = f.read()
-    return base64.b64encode(data).decode()
-
-logo_base64 = get_base64_of_bin_file('TMI.png')
-
-# ------------------------------------------------------
 # Streamlit Page Config
 # ------------------------------------------------------
 st.set_page_config(
     page_title="Job Scraper Dashboard",
     layout="wide"
 )
+
+# ------------------------------------------------------
+# Image Loading
+# ------------------------------------------------------
+APP_DIR = os.path.dirname(os.path.abspath(__file__))
+logo_path = os.path.join(APP_DIR, "TMI.png")
+logo_base64 = ""
+try:
+    with open(logo_path, 'rb') as f:
+        logo_base64 = base64.b64encode(f.read()).decode()
+except FileNotFoundError:
+    pass
 
 # ------------------------------------------------------
 # GLOBAL CSS (Including styles from scraper.html)
@@ -43,6 +45,7 @@ body {
     padding-top: 0rem !important;
     padding-left: 0rem !important;
     padding-right: 0rem !important;
+    padding-bottom: 0rem !important;
 }
 
 /* Override Streamlit button for download visibility */
@@ -61,6 +64,7 @@ div.stButton > button:first-child {
 div.stButton > button:first-child:hover {
     background: #fff;
     color: #58a648 !important;
+    border: 1px solid #58a648;
 }
 
 /* Navbar from scraper.html */
