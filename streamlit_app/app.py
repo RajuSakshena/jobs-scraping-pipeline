@@ -1,5 +1,16 @@
 import streamlit as st
 import os
+import base64
+
+# ------------------------------------------------------
+# Base64 Image Encoder
+# ------------------------------------------------------
+def get_base64_of_bin_file(bin_file):
+    with open(bin_file, 'rb') as f:
+        data = f.read()
+    return base64.b64encode(data).decode()
+
+logo_base64 = get_base64_of_bin_file('TMI.png')
 
 # ------------------------------------------------------
 # Streamlit Page Config
@@ -34,6 +45,24 @@ body {
     padding-right: 0rem !important;
 }
 
+/* Override Streamlit button for download visibility */
+div.stButton > button:first-child {
+    display: inline-block;
+    padding: 0.8rem 1.5rem;
+    background: #58a648;
+    color: #fff !important;
+    font-weight: bold;
+    border-radius: 6px;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    transition: 0.3s;
+}
+div.stButton > button:first-child:hover {
+    background: #fff;
+    color: #58a648 !important;
+}
+
 /* Navbar from scraper.html */
 .navbar {
     display: flex;
@@ -47,24 +76,14 @@ body {
     align-items: center;
     gap: 15px;
 }
-.donate-header-btn {
-    padding: 0.5rem 1.5rem;
-    font-size: 0.9rem;
-    background: #0b3c5d;
-    color: #fff;
-    text-decoration: none;
-    border-radius: 6px;
-}
-.donate-header-btn:hover {
-    background: #58a648;
-}
 
 /* Footer from scraper.html */
 footer {
     background: #003055;
     color: #cbd5e1;
     padding: 4rem 5% 2rem;
-    margin-top: 4rem;
+    margin-top: 0;
+    margin-bottom: 0;
     font-family: 'Inter', sans-serif;
 }
 .footer-grid {
@@ -99,22 +118,6 @@ footer {
     border-radius: 12px;
     text-align: center;
 }
-.donate-btn {
-    display: inline-block;
-    padding: 0.8rem 1.5rem;
-    background: #58a648;
-    color: #fff !important;
-    font-weight: bold;
-    border-radius: 6px;
-    text-decoration: none;
-    border: none;
-    cursor: pointer;
-    transition: 0.3s;
-}
-.donate-btn:hover {
-    background: #fff;
-    color: #58a648 !important;
-}
 .footer-bottom {
     border-top: 1px solid rgba(255,255,255,0.1);
     padding-top: 2rem;
@@ -133,7 +136,7 @@ footer {
 
 /* Content styling to match centered website layout */
 .content {
-    padding: 3rem 5%;
+    padding: 3rem 5% 0 5%;
     font-family: 'Inter', sans-serif;
     max-width: 1200px;
     margin: 0 auto;
@@ -142,17 +145,14 @@ footer {
 """, unsafe_allow_html=True)
 
 # ------------------------------------------------------
-# NAVBAR from scraper.html
+# NAVBAR from scraper.html (without buttons)
 # ------------------------------------------------------
-st.markdown("""
+st.markdown(f"""
 <nav class="navbar">
     <div class="logo-container">
-        <a href="index.html"><img src="TMI.png" alt="TMI Logo"></a>
+        <a href="index.html"><img src="data:image/png;base64,{logo_base64}" alt="TMI Logo"></a>
     </div>
     <div class="nav-right">
-        <button id="google-login" class="donate-btn">Login</button>
-        <button id="logout-btn" class="donate-btn" style="display:none;">Logout</button>
-        <a href="giving.html" class="btn donate-header-btn">Donate</a>
     </div>
 </nav>
 """, unsafe_allow_html=True)
@@ -204,13 +204,13 @@ else:
 st.markdown("</div>", unsafe_allow_html=True)
 
 # ------------------------------------------------------
-# FOOTER from scraper.html
+# FOOTER from scraper.html (without donate button)
 # ------------------------------------------------------
-st.markdown("""
+st.markdown(f"""
 <footer>
     <div class="footer-grid">
         <div class="footer-col">
-            <img src="TMI.png" style="height:50px; margin-bottom:1rem;">
+            <img src="data:image/png;base64,{logo_base64}" style="height:50px; margin-bottom:1rem;">
             <p>The Metropolitan Institute is a think-and-do tank dedicated to building aspirational and resilient regions.</p>
         </div>
         <div class="footer-col">
@@ -233,7 +233,6 @@ st.markdown("""
             <div class="donate-box">
                 <h4>Support Our Mission</h4>
                 <p>Help us bridge the gap between policy and people.</p>
-                <a href="giving.html" class="donate-btn">Donate Now</a>
             </div>
         </div>
     </div>
