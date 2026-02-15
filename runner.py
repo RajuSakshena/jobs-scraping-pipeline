@@ -13,7 +13,7 @@ from scrapers.developmentaid.developmentaid import scrape_jobs as scrape_develop
 # PATH SETUP (Flask Safe Version)
 # ======================================================
 
-BASE_DIR = os.getcwd()  # Flask ke liye safest
+BASE_DIR = os.getcwd()
 OUTPUT_DIR = os.path.join(BASE_DIR, "output")
 COMBINED_FILE = os.path.join(OUTPUT_DIR, "Combined.xlsx")
 
@@ -23,7 +23,7 @@ FINAL_COLUMNS = [
     "Title",
     "Description",
     "Matched_Vertical",
-    "Posting_Date",
+    "Deadline",          # ✅ Changed
     "Apply_Link"
 ]
 
@@ -41,7 +41,7 @@ def format_excel(path):
         ws.column_dimensions["B"].width = 55
         ws.column_dimensions["C"].width = 120
         ws.column_dimensions["D"].width = 35
-        ws.column_dimensions["E"].width = 22
+        ws.column_dimensions["E"].width = 22   # Deadline column
         ws.column_dimensions["F"].width = 45
 
         for row in ws.iter_rows(min_row=2):
@@ -65,7 +65,6 @@ def run_all_scrapers_and_combine():
     try:
         print("🚀 Starting scraper process...")
 
-        # Ensure output folder exists
         os.makedirs(OUTPUT_DIR, exist_ok=True)
 
         combined_rows = []
@@ -83,7 +82,7 @@ def run_all_scrapers_and_combine():
                         "Title": row.get("Title"),
                         "Description": None,
                         "Matched_Vertical": None,
-                        "Posting_Date": row.get("Deadline"),
+                        "Deadline": row.get("Deadline"),   # ✅ Changed
                         "Apply_Link": f'=HYPERLINK("{link}", "Apply")' if link else ""
                     })
                 print(f"✅ ESTM rows added: {len(estm_df)}")
@@ -106,7 +105,7 @@ def run_all_scrapers_and_combine():
                         "Title": row.get("Title"),
                         "Description": row.get("Description"),
                         "Matched_Vertical": row.get("Matched_Vertical"),
-                        "Posting_Date": None,
+                        "Deadline": None,   # C40 does not provide
                         "Apply_Link": row.get("Apply_Link")
                     })
                 print(f"✅ C40 rows added: {len(c40_df)}")
@@ -130,7 +129,7 @@ def run_all_scrapers_and_combine():
                         "Title": row.get("Title"),
                         "Description": row.get("Description"),
                         "Matched_Vertical": row.get("Category"),
-                        "Posting_Date": None,
+                        "Deadline": None,   # Not available
                         "Apply_Link": f'=HYPERLINK("{link}", "Apply")' if link else ""
                     })
                 print(f"✅ DevelopmentAid rows added: {len(da_df)}")
@@ -165,7 +164,7 @@ def run_all_scrapers_and_combine():
 
 
 # ======================================================
-# DIRECT RUN SUPPORT (Optional)
+# DIRECT RUN SUPPORT
 # ======================================================
 
 if __name__ == "__main__":
