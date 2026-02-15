@@ -83,7 +83,7 @@ def run_all_scrapers_and_combine():
                         "Title": row.get("Title"),
                         "Description": None,
                         "Matched_Vertical": None,
-                        "Posting_Date": row.get("Posting_Date"),
+                        "Posting_Date": row.get("Deadline"),
                         "Apply_Link": f'=HYPERLINK("{link}", "Apply")' if link else ""
                     })
                 print(f"✅ ESTM rows added: {len(estm_df)}")
