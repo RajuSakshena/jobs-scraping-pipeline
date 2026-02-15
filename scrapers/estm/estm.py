@@ -13,21 +13,15 @@ import time
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, "..", ".."))
 OUTPUT_DIR = os.path.join(PROJECT_ROOT, "output")
-OUTPUT_FILE = os.path.join(OUTPUT_DIR, "estm_jobs.xlsx")
 
 URL = (
     "https://estm.fa.em2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1/jobs"
     "?location=India&locationId=300000000440677&locationLevel=country&mode=location"
 )
 
-
-def safe_text(parent, by, value):
-    try:
-        return parent.find_element(by, value).text.strip()
-    except:
-        return ""
-
-
+# ======================================================
+# DRIVER
+# ======================================================
 def get_driver():
     options = Options()
     options.add_argument("--headless=new")
@@ -37,7 +31,9 @@ def get_driver():
     options.add_argument("--window-size=1920,1080")
     return webdriver.Chrome(options=options)
 
-
+# ======================================================
+# SCRAPER
+# ======================================================
 def scrape_jobs():
     driver = get_driver()
     wait = WebDriverWait(driver, 30)
@@ -46,67 +42,74 @@ def scrape_jobs():
 
     wait.until(
         EC.presence_of_element_located(
-            (By.CSS_SELECTOR, "div.job-grid-item__content")
+            (By.CSS_SELECTOR, "div.job-grid-item")
         )
     )
 
     time.sleep(3)
 
-    cards = driver.find_elements(By.CSS_SELECTOR, "div.job-grid-item__content")
-    print(f"✅ Found {len(cards)} ESTM jobs")
+    job_cards = driver.find_elements(By.CSS_SELECTOR, "div.job-grid-item")
+    print(f"✅ Found {len(job_cards)} jobs")
 
     jobs = []
 
-    for card in cards:
-        title = safe_text(card, By.CSS_SELECTOR, "span.job-tile__title")
-        location = safe_text(card, By.CSS_SELECTOR, "span[data-bind*='primaryLocation']")
-        posting_date = safe_text(
-            card,
-            By.XPATH,
-            ".//div[contains(text(),'Posting Date')]/following::div[1]"
-        )
+    for card in job_cards:
+        try:
+            link = card.find_element(By.TAG_NAME, "a").get_attribute("href")
+        except:
+            continue
 
         try:
-            apply_link = card.find_element(
-                By.XPATH,
-                "ancestor::div[contains(@class,'job-grid-item__link')]/preceding-sibling::a"
-            ).get_attribute("href")
+            title = card.find_element(By.CSS_SELECTOR, "span.job-tile__title").text.strip()
         except:
-            apply_link = ""
+            title = ""
 
-        if title or apply_link:
-            jobs.append({
-                "Source": "ESTM",
-                "Title": title,
-                "Location": location,
-                "Posting_Date": posting_date,
-                "Apply_Link": apply_link
-            })
+        try:
+            location = card.find_element(
+                By.CSS_SELECTOR,
+                "span[data-bind*='primaryLocation']"
+            ).text.strip()
+        except:
+            location = ""
+
+        # ================= OPEN DETAIL PAGE =================
+        driver.execute_script("window.open(arguments[0]);", link)
+        driver.switch_to.window(driver.window_handles[1])
+
+        wait.until(
+            EC.presence_of_element_located(
+                (By.CSS_SELECTOR, "div.job-details__info-section")
+            )
+        )
+
+        time.sleep(2)
+
+        # ================= EXTRACT DEADLINE =================
+        try:
+            deadline = driver.find_element(
+                By.XPATH,
+                "//span[text()='Apply Before']/following-sibling::span"
+            ).text.strip()
+        except:
+            deadline = ""
+
+        driver.close()
+        driver.switch_to.window(driver.window_handles[0])
+
+        jobs.append({
+            "Source": "ESTM",
+            "Title": title,
+            "Location": location,
+            "Deadline": deadline,
+            "Apply_Link": link
+        })
 
     driver.quit()
     return pd.DataFrame(jobs)
 
-
-def save_to_excel(df):
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
-
-    if df.empty:
-        df = pd.DataFrame(columns=[
-            "Source", "Title", "Location", "Posting_Date", "Apply_Link"
-        ])
-
-    df["Apply_Link"] = df["Apply_Link"].apply(
-        lambda x: f'=HYPERLINK("{x}", "Apply")' if x else ""
-    )
-
-    df.to_excel(OUTPUT_FILE, index=False, engine="openpyxl")
-    print(f"✅ ESTM Excel created: {OUTPUT_FILE}")
-
-
-def main():
-    df = scrape_jobs()
-    save_to_excel(df)
-
-
+# ======================================================
+# MAIN
+# ======================================================
 if __name__ == "__main__":
-    main()
+    df = scrape_jobs()
+    print(df)
