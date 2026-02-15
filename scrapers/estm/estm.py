@@ -67,12 +67,6 @@ def scrape_jobs():
         title = safe_text(card, By.CSS_SELECTOR, "span.job-tile__title")
         location = safe_text(card, By.CSS_SELECTOR, "span[data-bind*='primaryLocation']")
 
-        deadline = safe_text(
-            card,
-            By.XPATH,
-            ".//div[contains(text(),'Posting Date')]/following::div[1]"
-        )
-
         try:
             apply_link = card.find_element(
                 By.XPATH,
@@ -81,12 +75,42 @@ def scrape_jobs():
         except:
             apply_link = ""
 
+        deadline = ""
+
+        # 🔥 Visit detail page to get Apply Before
+        if apply_link:
+            driver.get(apply_link)
+
+            try:
+                wait.until(
+                    EC.presence_of_element_located(
+                        (By.CSS_SELECTOR, "div.job-details__info-section")
+                    )
+                )
+
+                deadline = driver.find_element(
+                    By.XPATH,
+                    "//span[text()='Apply Before']/following-sibling::span"
+                ).text.strip()
+
+            except:
+                deadline = ""
+
+            # Go back to listing page
+            driver.get(URL)
+            wait.until(
+                EC.presence_of_element_located(
+                    (By.CSS_SELECTOR, "div.job-grid-item__content")
+                )
+            )
+            cards = driver.find_elements(By.CSS_SELECTOR, "div.job-grid-item__content")
+
         if title or apply_link:
             jobs.append({
                 "Source": "ESTM",
                 "Title": title,
                 "Location": location,
-                "Deadline": deadline,   # ✅ Changed here
+                "Deadline": deadline,
                 "Apply_Link": apply_link
             })
 
