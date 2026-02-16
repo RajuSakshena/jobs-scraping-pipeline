@@ -1,6 +1,7 @@
 import os
 import traceback
 import pandas as pd
+import re
 from openpyxl import load_workbook
 from openpyxl.styles import Alignment
 
@@ -101,13 +102,20 @@ def run_all_scrapers_and_combine():
 
             if c40_df is not None and not c40_df.empty:
                 for _, row in c40_df.iterrows():
+                    link = row.get("Apply_Link")
+                    link = "" if not isinstance(link, str) or not link.strip() else link.strip()
+                    # Extract clean URL from HYPERLINK formula if present
+                    if isinstance(link, str) and 'HYPERLINK(' in link:
+                        match = re.search(r'HYPERLINK\("([^"]+)"', link)
+                        if match:
+                            link = match.group(1)
                     combined_rows.append({
                         "Source": "C40",
                         "Title": row.get("Title"),
                         "Description": row.get("Description"),
                         "Matched_Vertical": row.get("Matched_Vertical"),
                         "Deadline": None,   # C40 does not provide
-                        "Apply_Link": row.get("Apply_Link")
+                        "Apply_Link": link
                     })
                 print(f"✅ C40 rows added: {len(c40_df)}")
             else:
