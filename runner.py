@@ -76,14 +76,15 @@ def run_all_scrapers_and_combine():
 
             if estm_df is not None and not estm_df.empty:
                 for _, row in estm_df.iterrows():
-                    link = row.get("Apply_Link", "")
+                    link = row.get("Apply_Link")
+                    link = "" if not isinstance(link, str) or not link.strip() else link.strip()
                     combined_rows.append({
                         "Source": "ESTM",
                         "Title": row.get("Title"),
                         "Description": None,
                         "Matched_Vertical": None,
                         "Deadline": row.get("Deadline"),   # ✅ Changed
-                        "Apply_Link": f'=HYPERLINK("{link}", "Apply")' if link else ""
+                        "Apply_Link": link
                     })
                 print(f"✅ ESTM rows added: {len(estm_df)}")
             else:
@@ -123,14 +124,15 @@ def run_all_scrapers_and_combine():
 
             if da_df is not None and not da_df.empty:
                 for _, row in da_df.iterrows():
-                    link = row.get("Apply_Link", "")
+                    link = row.get("Apply_Link")
+                    link = "" if not isinstance(link, str) or not link.strip() else link.strip()
                     combined_rows.append({
                         "Source": "DevelopmentAid",
                         "Title": row.get("Title"),
                         "Description": row.get("Description"),
                         "Matched_Vertical": row.get("Category"),
                         "Deadline": None,   # Not available
-                        "Apply_Link": f'=HYPERLINK("{link}", "Apply")' if link else ""
+                        "Apply_Link": link
                     })
                 print(f"✅ DevelopmentAid rows added: {len(da_df)}")
             else:
