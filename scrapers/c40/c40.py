@@ -11,6 +11,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
+
 # ======================================================
 # PATH SETUP
 # ======================================================
@@ -47,8 +48,33 @@ def get_driver():
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
     options.add_argument("--window-size=1920,1080")
-
     return webdriver.Chrome(options=options)
+
+
+# ======================================================
+# DEADLINE EXTRACTOR (STRUCTURE BASED)
+# ======================================================
+def extract_application_process(desc_container):
+    """
+    Extract full paragraph immediately after
+    'Application Process:' heading.
+    """
+    deadline_text = ""
+
+    app_span = desc_container.find(
+        "span",
+        string=lambda x: x and "Application Process" in x
+    )
+
+    if app_span:
+        parent_p = app_span.find_parent("p")
+
+        if parent_p:
+            next_p = parent_p.find_next_sibling("p")
+            if next_p:
+                deadline_text = next_p.get_text(separator=" ", strip=True)
+
+    return deadline_text
 
 
 # ======================================================
@@ -63,20 +89,20 @@ def scrape_c40_jobs():
 
     try:
         driver.get(CAREERS_URL)
-
         wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
         time.sleep(3)
 
         soup = BeautifulSoup(driver.page_source, "html.parser")
 
         job_links = []
+
         for a in soup.select("a[href^='/careers/']"):
             href = a.get("href")
             title = a.get_text(strip=True)
+
             if href and title:
                 job_links.append((BASE_URL + href, title))
 
-        # remove duplicates
         job_links = list(dict.fromkeys(job_links))
 
         for job_url, fallback_title in job_links:
@@ -89,11 +115,13 @@ def scrape_c40_jobs():
             title_tag = job_soup.find("h3")
             title = title_tag.get_text(strip=True) if title_tag else fallback_title
 
-            desc_blocks = job_soup.find_all("div", class_=re.compile("description"))
-            description = "\n".join(d.get_text(strip=True) for d in desc_blocks)
+            desc_container = job_soup.find("div", class_="BambooRichText")
 
-            if not description:
+            if not desc_container:
                 continue
+
+            description = desc_container.get_text(separator="\n", strip=True)
+            deadline = extract_application_process(desc_container)
 
             matched_vertical = match_verticals(title, description, keywords)
 
@@ -101,7 +129,8 @@ def scrape_c40_jobs():
                 "Title": title,
                 "Description": description,
                 "Matched_Vertical": matched_vertical,
-                "Apply_Link": f'=HYPERLINK("{job_url}", "{title.replace(chr(34), "")}")'
+                "Deadline": deadline,
+                "Apply_Link": job_url
             })
 
     finally:
@@ -109,12 +138,11 @@ def scrape_c40_jobs():
 
     if not jobs:
         print("❌ No C40 jobs extracted")
-        return pd.DataFrame(columns=["Title", "Description", "Matched_Vertical", "Apply_Link"])
+        return pd.DataFrame(columns=[
+            "Title", "Description", "Matched_Vertical", "Deadline", "Apply_Link"
+        ])
 
-    df = pd.DataFrame(
-        jobs,
-        columns=["Title", "Description", "Matched_Vertical", "Apply_Link"]
-    )
+    df = pd.DataFrame(jobs)
 
     print(f"✅ C40 scraping completed, {len(df)} jobs found")
     return df
