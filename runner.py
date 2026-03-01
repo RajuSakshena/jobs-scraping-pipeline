@@ -11,20 +11,19 @@ from scrapers.developmentaid.developmentaid import scrape_jobs as scrape_develop
 
 
 # ======================================================
-# PATH SETUP (Flask Safe Version)
+# PATH SETUP
 # ======================================================
 
 BASE_DIR = os.getcwd()
 OUTPUT_DIR = os.path.join(BASE_DIR, "output")
 COMBINED_FILE = os.path.join(OUTPUT_DIR, "Combined.xlsx")
 
-
 FINAL_COLUMNS = [
     "Source",
     "Title",
     "Description",
     "Matched_Vertical",
-    "Deadline",          # ✅ Changed
+    "Deadline",
     "Apply_Link"
 ]
 
@@ -42,11 +41,11 @@ def format_excel(path):
         ws.column_dimensions["B"].width = 55
         ws.column_dimensions["C"].width = 120
         ws.column_dimensions["D"].width = 35
-        ws.column_dimensions["E"].width = 22   # Deadline column
-        ws.column_dimensions["F"].width = 45
+        ws.column_dimensions["E"].width = 25
+        ws.column_dimensions["F"].width = 60
 
         for row in ws.iter_rows(min_row=2):
-            ws.row_dimensions[row[0].row].height = 80
+            ws.row_dimensions[row[0].row].height = 95
             for cell in row:
                 cell.alignment = Alignment(wrap_text=True, vertical="top")
 
@@ -59,34 +58,54 @@ def format_excel(path):
 
 
 # ======================================================
+# CLEAN LINK FUNCTION
+# ======================================================
+
+def clean_link(link):
+    if not isinstance(link, str) or not link.strip():
+        return ""
+
+    link = link.strip()
+
+    # If Excel hyperlink formula exists, extract raw URL
+    if 'HYPERLINK(' in link:
+        match = re.search(r'HYPERLINK\("([^"]+)"', link)
+        if match:
+            return match.group(1)
+
+    return link
+
+
+# ======================================================
 # MAIN RUNNER FUNCTION
 # ======================================================
 
 def run_all_scrapers_and_combine():
     try:
         print("🚀 Starting scraper process...")
-
         os.makedirs(OUTPUT_DIR, exist_ok=True)
 
         combined_rows = []
 
-        # ================= ESTM =================
+        # ======================================================
+        # ESTM SCRAPER
+        # ======================================================
+
         try:
             print("🔎 Running ESTM scraper...")
             estm_df = scrape_estm_jobs()
 
             if estm_df is not None and not estm_df.empty:
                 for _, row in estm_df.iterrows():
-                    link = row.get("Apply_Link")
-                    link = "" if not isinstance(link, str) or not link.strip() else link.strip()
                     combined_rows.append({
                         "Source": "ESTM",
                         "Title": row.get("Title"),
-                        "Description": None,
-                        "Matched_Vertical": None,
-                        "Deadline": row.get("Deadline"),   # ✅ Changed
-                        "Apply_Link": link
+                        "Description": row.get("Description"),
+                        "Matched_Vertical": row.get("Matched_Vertical"),
+                        "Deadline": row.get("Deadline"),
+                        "Apply_Link": clean_link(row.get("Apply_Link"))
                     })
+
                 print(f"✅ ESTM rows added: {len(estm_df)}")
             else:
                 print("⚠ ESTM returned no data")
@@ -95,28 +114,26 @@ def run_all_scrapers_and_combine():
             print("❌ ESTM failed")
             traceback.print_exc()
 
-        # ================= C40 =================
+
+        # ======================================================
+        # C40 SCRAPER
+        # ======================================================
+
         try:
             print("🔎 Running C40 scraper...")
             c40_df = scrape_c40_jobs()
 
             if c40_df is not None and not c40_df.empty:
                 for _, row in c40_df.iterrows():
-                    link = row.get("Apply_Link")
-                    link = "" if not isinstance(link, str) or not link.strip() else link.strip()
-                    # Extract clean URL from HYPERLINK formula if present
-                    if isinstance(link, str) and 'HYPERLINK(' in link:
-                        match = re.search(r'HYPERLINK\("([^"]+)"', link)
-                        if match:
-                            link = match.group(1)
                     combined_rows.append({
                         "Source": "C40",
                         "Title": row.get("Title"),
                         "Description": row.get("Description"),
                         "Matched_Vertical": row.get("Matched_Vertical"),
-                        "Deadline": None,   # C40 does not provide
-                        "Apply_Link": link
+                        "Deadline": row.get("Deadline"),
+                        "Apply_Link": clean_link(row.get("Apply_Link"))
                     })
+
                 print(f"✅ C40 rows added: {len(c40_df)}")
             else:
                 print("⚠ C40 returned no data")
@@ -125,23 +142,26 @@ def run_all_scrapers_and_combine():
             print("❌ C40 failed")
             traceback.print_exc()
 
-        # ================= DevelopmentAid =================
+
+        # ======================================================
+        # DevelopmentAid SCRAPER
+        # ======================================================
+
         try:
             print("🔎 Running DevelopmentAid scraper...")
             da_df = scrape_developmentaid_jobs()
 
             if da_df is not None and not da_df.empty:
                 for _, row in da_df.iterrows():
-                    link = row.get("Apply_Link")
-                    link = "" if not isinstance(link, str) or not link.strip() else link.strip()
                     combined_rows.append({
                         "Source": "DevelopmentAid",
                         "Title": row.get("Title"),
                         "Description": row.get("Description"),
-                        "Matched_Vertical": row.get("Category"),
-                        "Deadline": None,   # Not available
-                        "Apply_Link": link
+                        "Matched_Vertical": row.get("Category"),   # Category → Matched_Vertical
+                        "Deadline": row.get("Deadline"),           # ✅ Correctly Added
+                        "Apply_Link": clean_link(row.get("Apply_Link"))
                     })
+
                 print(f"✅ DevelopmentAid rows added: {len(da_df)}")
             else:
                 print("⚠ DevelopmentAid returned no data")
@@ -150,7 +170,11 @@ def run_all_scrapers_and_combine():
             print("❌ DevelopmentAid failed")
             traceback.print_exc()
 
-        # ================= FINAL EXPORT =================
+
+        # ======================================================
+        # FINAL EXPORT
+        # ======================================================
+
         if not combined_rows:
             print("❌ No data collected from any scraper")
             return None
@@ -174,7 +198,7 @@ def run_all_scrapers_and_combine():
 
 
 # ======================================================
-# DIRECT RUN SUPPORT
+# ENTRY POINT
 # ======================================================
 
 if __name__ == "__main__":
