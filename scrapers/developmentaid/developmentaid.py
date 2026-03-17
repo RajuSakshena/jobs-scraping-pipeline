@@ -4,7 +4,6 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException
 import time
 import re
 
@@ -21,6 +20,10 @@ KEYWORDS = {
 NORMALIZED = {k: [w.lower() for w in v] for k, v in KEYWORDS.items()}
 
 
+# ======================================================
+# DRIVER
+# ======================================================
+
 def get_driver():
     options = Options()
     options.add_argument("--headless=new")
@@ -29,6 +32,10 @@ def get_driver():
     options.add_argument("--window-size=1920,1080")
     return webdriver.Chrome(options=options)
 
+
+# ======================================================
+# CATEGORY DETECTION
+# ======================================================
 
 def detect_categories(text):
     text = text.lower()
@@ -41,15 +48,47 @@ def detect_categories(text):
     return ", ".join(matched)
 
 
+# ======================================================
+# DESCRIPTION SCRAPER (SEPARATE DRIVER 🔥)
+# ======================================================
+
+def get_description(link):
+    driver = get_driver()
+    try:
+        driver.get(link)
+
+        WebDriverWait(driver, 15).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, "div.view-excerpt"))
+        )
+
+        desc = driver.find_element(By.CSS_SELECTOR, "div.view-excerpt").text.strip()
+        return desc
+
+    except:
+        return "No description available"
+
+    finally:
+        driver.quit()
+
+
+# ======================================================
+# MAIN SCRAPER
+# ======================================================
+
 def scrape_jobs():
     driver = get_driver()
     wait = WebDriverWait(driver, 30)
+
     rows = []
     seen_links = set()
 
     try:
         driver.get(URL)
-        wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "da-tender-content-card")))
+
+        wait.until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, "da-tender-content-card"))
+        )
+
         time.sleep(3)
 
         cards = driver.find_elements(By.CSS_SELECTOR, "da-tender-content-card")
@@ -60,10 +99,9 @@ def scrape_jobs():
                 title_elem = card.find_element(By.CSS_SELECTOR, "a.search-card__title")
                 title = title_elem.get_attribute("title").strip()
 
-                # 🔎 Detect vertical
                 matched_vertical = detect_categories(title)
 
-                # ❗ Skip if no match
+                # ❗ ONLY CATEGORY FILTER (NO DESCRIPTION FILTER)
                 if not matched_vertical:
                     continue
 
@@ -74,7 +112,7 @@ def scrape_jobs():
                     continue
                 seen_links.add(link)
 
-                # Deadline extraction
+                # Deadline
                 try:
                     deadline_elem = card.find_element(
                         By.CSS_SELECTOR,
@@ -84,10 +122,15 @@ def scrape_jobs():
                 except:
                     deadline = ""
 
+                print(f"🔗 Scraping: {title}")
+
+                # 🔥 description without breaking main driver
+                description = get_description(link)
+
                 rows.append({
                     "Source": "DevelopmentAid",
                     "Title": title,
-                    "Description": "",
+                    "Description": description,
                     "Category": matched_vertical,
                     "Deadline": deadline,
                     "Apply_Link": link
@@ -96,14 +139,8 @@ def scrape_jobs():
             except Exception:
                 continue
 
-    except TimeoutException:
-        print("Page load timeout")
+    except Exception as e:
+        print("❌ Error:", str(e))
 
     driver.quit()
     return pd.DataFrame(rows)
-
-
-if __name__ == "__main__":
-    df = scrape_jobs()
-    print(df.head())
-    print("Total matched tenders:", len(df))
