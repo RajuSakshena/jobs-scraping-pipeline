@@ -67,13 +67,23 @@ def clean_link(link):
 
     link = link.strip()
 
-    # If Excel hyperlink formula exists, extract raw URL
+    # Extract URL from Excel hyperlink if present
     if 'HYPERLINK(' in link:
         match = re.search(r'HYPERLINK\("([^"]+)"', link)
         if match:
             return match.group(1)
 
     return link
+
+
+# ======================================================
+# SAFE DESCRIPTION HANDLER (🔥 FIX)
+# ======================================================
+
+def clean_description(desc):
+    if not desc or str(desc).strip().lower() in ["", "nan", "none"]:
+        return "No description available"
+    return str(desc).strip()
 
 
 # ======================================================
@@ -100,7 +110,7 @@ def run_all_scrapers_and_combine():
                     combined_rows.append({
                         "Source": "ESTM",
                         "Title": row.get("Title"),
-                        "Description": row.get("Description"),
+                        "Description": clean_description(row.get("Description")),
                         "Matched_Vertical": row.get("Matched_Vertical"),
                         "Deadline": row.get("Deadline"),
                         "Apply_Link": clean_link(row.get("Apply_Link"))
@@ -128,7 +138,7 @@ def run_all_scrapers_and_combine():
                     combined_rows.append({
                         "Source": "C40",
                         "Title": row.get("Title"),
-                        "Description": row.get("Description"),
+                        "Description": clean_description(row.get("Description")),
                         "Matched_Vertical": row.get("Matched_Vertical"),
                         "Deadline": row.get("Deadline"),
                         "Apply_Link": clean_link(row.get("Apply_Link"))
@@ -156,9 +166,9 @@ def run_all_scrapers_and_combine():
                     combined_rows.append({
                         "Source": "DevelopmentAid",
                         "Title": row.get("Title"),
-                        "Description": row.get("Description"),
-                        "Matched_Vertical": row.get("Category"),   # Category → Matched_Vertical
-                        "Deadline": row.get("Deadline"),           # ✅ Correctly Added
+                        "Description": clean_description(row.get("Description")),  # 🔥 FIX APPLIED
+                        "Matched_Vertical": row.get("Category"),
+                        "Deadline": row.get("Deadline"),
                         "Apply_Link": clean_link(row.get("Apply_Link"))
                     })
 
