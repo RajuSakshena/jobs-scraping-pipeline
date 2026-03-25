@@ -1,8 +1,6 @@
-import os
 import time
 import re
 import pandas as pd
-from bs4 import BeautifulSoup
 from playwright.sync_api import sync_playwright
 
 # ======================================================
@@ -10,7 +8,9 @@ from playwright.sync_api import sync_playwright
 # ======================================================
 C40_RFP_URL = "https://www.c40.org/work-with-c40/"
 
-# ✅ UPDATED KEYWORDS (Development + Govt included)
+# ======================================================
+# KEYWORDS
+# ======================================================
 KEYWORDS = {
     "Governance": [
         "governance", "policy", "capacity building", "municipal", "m&e",
@@ -21,14 +21,11 @@ KEYWORDS = {
         "strategy", "framework", "tool", "technology",
         "knowledge", "csr", "philanthropy", "business",
         "entrepreneurship", "entrepreneurs", "shg",
-
-        # ✅ DEVELOPMENT + GOVT RELATED
         "development", "urban", "infrastructure", "city",
         "housing", "parks", "planning", "guidelines",
         "implementation", "technical assistance",
         "project", "program", "scheme"
     ],
-
     "Learning": [
         "education", "skill", "skills", "training", "life skills",
         "tvet", "student", "learning by doing",
@@ -36,13 +33,11 @@ KEYWORDS = {
         "educational institutes", "ai", "skilling",
         "digital learning", "edtech"
     ],
-
     "Safety": [
         "gender", "women", "equity", "safety", "mobility",
         "sexual", "health", "security", "protection",
         "child", "children", "lgbtq", "wellbeing", "wash"
     ],
-
     "Climate": [
         "climate", "resilience", "environment", "disaster",
         "sustainability", "green", "renewable", "energy",
@@ -51,7 +46,7 @@ KEYWORDS = {
 }
 
 # ======================================================
-# 🔥 MATCHING LOGIC (ONLY 1 KEYWORD NEEDED)
+# MATCHING LOGIC
 # ======================================================
 def match_verticals(title, description):
     text = f"{title} {description}".lower()
@@ -61,7 +56,7 @@ def match_verticals(title, description):
         for w in set(words):
             if re.search(rf"\b{re.escape(w.lower())}\b", text):
                 matched.append(vertical)
-                break  # ✅ 1 match enough → break
+                break
 
     return ", ".join(matched) if matched else "N/A"
 
@@ -74,11 +69,11 @@ def scrape_c40_jobs():
 
     with sync_playwright() as p:
         browser = p.chromium.launch(
-            headless=True,  # ✅ browser UI band rahega
+            headless=True,
             args=[
-                "--disable-blink-features=AutomationControlled",
                 "--no-sandbox",
-                "--disable-dev-shm-usage"
+                "--disable-dev-shm-usage",
+                "--disable-blink-features=AutomationControlled"
             ]
         )
 
@@ -89,39 +84,46 @@ def scrape_c40_jobs():
 
         page = context.new_page()
 
-        # stealth
-        page.add_init_script("""
-            Object.defineProperty(navigator, 'webdriver', {
-                get: () => undefined
-            })
-        """)
-
         print("🔍 Opening C40 page...")
-        page.goto(C40_RFP_URL, timeout=60000)
+        page.goto(C40_RFP_URL, timeout=60000, wait_until="domcontentloaded")
 
-        time.sleep(5)
-        page.mouse.wheel(0, 3000)
+        # ✅ Wait for content
+        try:
+            page.wait_for_selector("a.link-cards-item", timeout=15000)
+        except:
+            print("⚠ Initial load failed, trying scroll...")
+
+        # ✅ Force scroll (important for GitHub)
+        for _ in range(6):
+            page.mouse.wheel(0, 5000)
+            time.sleep(2)
+
         time.sleep(3)
 
-        soup = BeautifulSoup(page.content(), "html.parser")
+        # ======================================================
+        # 🔥 DIRECT PLAYWRIGHT SELECTOR (NO BS4)
+        # ======================================================
+        cards = page.locator("a.link-cards-item")
+        count = cards.count()
 
-        rfp_cards = soup.select("a.link-cards-item")
-        print(f"✅ Found {len(rfp_cards)} RFPs")
+        print(f"✅ Found {count} RFPs")
 
-        for card in rfp_cards:
+        for i in range(count):
             try:
-                title_tag = card.select_one("h3.link-cards-item__heading")
-                deadline_tag = card.select_one("h4.link-cards-item__subheading")
-                link = card.get("href")
+                card = cards.nth(i)
 
-                title = title_tag.get_text(strip=True) if title_tag else "N/A"
-                deadline = deadline_tag.get_text(strip=True) if deadline_tag else "N/A"
+                title = card.locator("h3").inner_text() if card.locator("h3").count() > 0 else "N/A"
+                deadline = card.locator("h4").inner_text() if card.locator("h4").count() > 0 else "N/A"
+                link = card.get_attribute("href")
+
+                # fix relative link
+                if link and link.startswith("/"):
+                    link = "https://www.c40.org" + link
 
                 description = f"{title} {deadline}"
 
                 matched_vertical = match_verticals(title, description)
 
-                # ✅ Only include if at least 1 keyword matched
                 if matched_vertical == "N/A":
                     continue
 
@@ -136,7 +138,7 @@ def scrape_c40_jobs():
                 print(f"✔️ {title} → {matched_vertical}")
 
             except Exception as e:
-                print(f"⚠️ Error: {e}")
+                print(f"⚠ Error: {e}")
 
         browser.close()
 
@@ -161,7 +163,6 @@ def scrape_c40_jobs():
 if __name__ == "__main__":
     df = scrape_c40_jobs()
 
-    # ✅ save output
     if not df.empty:
         file_path = "c40_output.xlsx"
         df.to_excel(file_path, index=False)
