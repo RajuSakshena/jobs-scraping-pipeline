@@ -1,14 +1,8 @@
-import re
-import time
 import pandas as pd
+import time
+import re
 from bs4 import BeautifulSoup
-
-try:
-    from curl_cffi import requests as cf_requests
-    CURL_CFFI_AVAILABLE = True
-except ImportError:
-    CURL_CFFI_AVAILABLE = False
-    import requests
+from playwright.sync_api import sync_playwright
 
 # ======================================================
 # CONFIG
@@ -19,123 +13,70 @@ C40_RFP_URL = "https://www.c40.org/work-with-c40/"
 # KEYWORDS
 # ======================================================
 KEYWORDS = {
-    "Governance": [
-        "governance", "policy", "capacity building", "municipal", "m&e",
-        "monitoring and evaluation", "social audits", "fundraising",
-        "management", "consulting", "consultant", "consultancy",
-        "administration", "public", "government", "capacity",
-        "impact", "evaluation", "dashboard", "data",
-        "strategy", "framework", "tool", "technology",
-        "knowledge", "csr", "philanthropy", "business",
-        "entrepreneurship", "entrepreneurs", "shg",
-        "development", "urban", "infrastructure", "city",
-        "housing", "parks", "planning", "guidelines",
-        "implementation", "technical assistance",
-        "project", "program", "scheme"
-    ],
-    "Learning": [
-        "education", "skill", "skills", "training", "life skills",
-        "tvet", "student", "learning by doing",
-        "teaching", "curriculum", "schools", "colleges",
-        "educational institutes", "ai", "skilling",
-        "digital learning", "edtech"
-    ],
-    "Safety": [
-        "gender", "women", "equity", "safety", "mobility",
-        "sexual", "health", "security", "protection",
-        "child", "children", "lgbtq", "wellbeing", "wash"
-    ],
-    "Climate": [
-        "climate", "resilience", "environment", "disaster",
-        "sustainability", "green", "renewable", "energy",
-        "pollution", "waste", "sanitation", "flood", "heat"
-    ]
+    "Governance": ["governance", "policy", "consultant", "project", "data"],
+    "Learning": ["education", "training", "skill", "learning"],
+    "Safety": ["gender", "women", "safety", "health"],
+    "Climate": ["climate", "environment", "energy", "sustainability"]
 }
 
 # ======================================================
-# MATCHING LOGIC
+# MATCHING
 # ======================================================
-def match_verticals(title, description):
-    text = f"{title} {description}".lower()
+def match_verticals(text):
+    text = text.lower()
     matched = []
+
     for vertical, words in KEYWORDS.items():
-        for w in set(words):
-            if re.search(rf"\b{re.escape(w.lower())}\b", text):
+        for w in words:
+            if w in text:
                 matched.append(vertical)
                 break
+
     return ", ".join(matched) if matched else "N/A"
 
-
 # ======================================================
-# FETCH HTML — curl_cffi
+# FETCH USING PLAYWRIGHT
 # ======================================================
-def fetch_html(url):
+def fetch_html():
 
-    if CURL_CFFI_AVAILABLE:
-        print("🔑 Using curl_cffi (Cloudflare bypass)...")
-        try:
-            session = cf_requests.Session(impersonate="chrome124")
+    print("🌐 Launching browser (Playwright)...")
 
-            # Get cookies first
-            session.get("https://www.c40.org/", timeout=30)
-            time.sleep(2)
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)  # GitHub compatible
+        page = browser.new_page()
 
-            # Retry logic
-            for attempt in range(3):
-                try:
-                    resp = session.get(url, timeout=30)
+        page.goto(C40_RFP_URL, timeout=60000)
 
-                    if resp.status_code == 200 and "Just a moment" not in resp.text:
-                        print(f"✅ Success on attempt {attempt+1}")
-                        return resp.text
-                    else:
-                        print(f"⚠ Attempt {attempt+1} blocked")
+        # wait for content load
+        page.wait_for_timeout(8000)
 
-                except Exception as e:
-                    print(f"⚠ Attempt {attempt+1} error: {e}")
+        html = page.content()
 
-                time.sleep(3)
+        browser.close()
 
-        except Exception as e:
-            print(f"⚠ curl_cffi error: {e}")
-
-    # Fallback
-    print("🔄 Trying fallback requests...")
-    try:
-        import requests as req
-        headers = {
-            "User-Agent": "Mozilla/5.0",
-        }
-        resp = req.get(url, headers=headers, timeout=30)
-        if resp.status_code == 200:
-            return resp.text
-    except Exception as e:
-        print(f"⚠ fallback error: {e}")
-
-    return None
-
+        return html
 
 # ======================================================
 # PARSE
 # ======================================================
 def parse_cards(html):
+
     soup = BeautifulSoup(html, "html.parser")
     data = []
-    seen_links = set()
+    seen = set()
 
-    cards = soup.find_all("a", class_=lambda c: c and "link-cards-item" in c)
+    cards = soup.find_all("a")
 
-    if not cards:
-        cards = soup.find_all("a")
-
-    print(f"📦 Found {len(cards)} elements")
+    print(f"📦 Total elements found: {len(cards)}")
 
     for card in cards:
         try:
             title_tag = card.find(["h2", "h3", "h4"])
-            title = title_tag.get_text(strip=True) if title_tag else None
+            if not title_tag:
+                continue
 
-            if not title or len(title) < 10:
+            title = title_tag.get_text(strip=True)
+            if len(title) < 10:
                 continue
 
             link = card.get("href", "")
@@ -145,21 +86,19 @@ def parse_cards(html):
             if link.startswith("/"):
                 link = "https://www.c40.org" + link
 
-            if link in seen_links:
+            if link in seen:
                 continue
-            seen_links.add(link)
+            seen.add(link)
 
-            # Better description
-            desc_text = card.get_text(" ", strip=True)
-            description = desc_text[:300]
+            description = card.get_text(" ", strip=True)[:300]
 
-            # Deadline extract
+            # deadline
             deadline = "N/A"
             h4s = card.find_all("h4")
             if h4s:
                 deadline = h4s[0].get_text(strip=True)
 
-            matched_vertical = match_verticals(title, description)
+            matched_vertical = match_verticals(description)
 
             data.append({
                 "Title": title,
@@ -172,42 +111,39 @@ def parse_cards(html):
             print(f"✔ {title[:60]} → {matched_vertical}")
 
         except Exception as e:
-            print(f"⚠ Parse error: {e}")
+            print(f"⚠ Error: {e}")
 
     return data
-
 
 # ======================================================
 # MAIN
 # ======================================================
 def scrape_c40_jobs():
-    print("🔍 Scraping C40...")
 
-    html = fetch_html(C40_RFP_URL)
+    print("🔍 Scraping C40 using browser...")
+
+    html = fetch_html()
 
     if not html:
-        print("❌ Failed to fetch page")
-        return pd.DataFrame()
-
-    if "Just a moment" in html:
-        print("❌ Still blocked by Cloudflare")
+        print("❌ Failed to load page")
         return pd.DataFrame()
 
     data = parse_cards(html)
 
     if not data:
-        print("❌ No data found")
+        print("❌ No data extracted")
         return pd.DataFrame()
 
     df = pd.DataFrame(data)
     print(f"✅ Total records: {len(df)}")
-    return df
 
+    return df
 
 # ======================================================
 # RUN
 # ======================================================
 if __name__ == "__main__":
+
     df = scrape_c40_jobs()
 
     if not df.empty:
