@@ -1,148 +1,168 @@
 import os
 import time
-import json
 import re
 import pandas as pd
 from bs4 import BeautifulSoup
-
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-
+from playwright.sync_api import sync_playwright
 
 # ======================================================
-# PATH SETUP
+# CONFIG
 # ======================================================
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-KEYWORDS_FILE = os.path.join(BASE_DIR, "keywords.json")
+C40_RFP_URL = "https://www.c40.org/work-with-c40/"
 
-CAREERS_URL = "https://c40.bamboohr.com/careers"
-BASE_URL = "https://c40.bamboohr.com"
+# ✅ UPDATED KEYWORDS (Development + Govt included)
+KEYWORDS = {
+    "Governance": [
+        "governance", "policy", "capacity building", "municipal", "m&e",
+        "monitoring and evaluation", "social audits", "fundraising",
+        "management", "consulting", "consultant", "consultancy",
+        "administration", "public", "government", "capacity",
+        "impact", "evaluation", "dashboard", "data",
+        "strategy", "framework", "tool", "technology",
+        "knowledge", "csr", "philanthropy", "business",
+        "entrepreneurship", "entrepreneurs", "shg",
 
+        # ✅ DEVELOPMENT + GOVT RELATED
+        "development", "urban", "infrastructure", "city",
+        "housing", "parks", "planning", "guidelines",
+        "implementation", "technical assistance",
+        "project", "program", "scheme"
+    ],
+
+    "Learning": [
+        "education", "skill", "skills", "training", "life skills",
+        "tvet", "student", "learning by doing",
+        "teaching", "curriculum", "schools", "colleges",
+        "educational institutes", "ai", "skilling",
+        "digital learning", "edtech"
+    ],
+
+    "Safety": [
+        "gender", "women", "equity", "safety", "mobility",
+        "sexual", "health", "security", "protection",
+        "child", "children", "lgbtq", "wellbeing", "wash"
+    ],
+
+    "Climate": [
+        "climate", "resilience", "environment", "disaster",
+        "sustainability", "green", "renewable", "energy",
+        "pollution", "waste", "sanitation", "flood", "heat"
+    ]
+}
 
 # ======================================================
-# HELPERS
+# 🔥 MATCHING LOGIC (ONLY 1 KEYWORD NEEDED)
 # ======================================================
-def load_keywords():
-    with open(KEYWORDS_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
-
-
-def match_verticals(title, description, keywords):
+def match_verticals(title, description):
     text = f"{title} {description}".lower()
     matched = []
-    for vertical, words in keywords.items():
-        for w in words:
+
+    for vertical, words in KEYWORDS.items():
+        for w in set(words):
             if re.search(rf"\b{re.escape(w.lower())}\b", text):
                 matched.append(vertical)
-                break
+                break  # ✅ 1 match enough → break
+
     return ", ".join(matched) if matched else "N/A"
-
-
-def get_driver():
-    options = Options()
-    options.add_argument("--headless=new")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--disable-gpu")
-    options.add_argument("--window-size=1920,1080")
-    return webdriver.Chrome(options=options)
-
-
-# ======================================================
-# DEADLINE EXTRACTOR (STRUCTURE BASED)
-# ======================================================
-def extract_application_process(desc_container):
-    """
-    Extract full paragraph immediately after
-    'Application Process:' heading.
-    """
-    deadline_text = ""
-
-    app_span = desc_container.find(
-        "span",
-        string=lambda x: x and "Application Process" in x
-    )
-
-    if app_span:
-        parent_p = app_span.find_parent("p")
-
-        if parent_p:
-            next_p = parent_p.find_next_sibling("p")
-            if next_p:
-                deadline_text = next_p.get_text(separator=" ", strip=True)
-
-    return deadline_text
 
 
 # ======================================================
 # MAIN SCRAPER
 # ======================================================
 def scrape_c40_jobs():
-    keywords = load_keywords()
-    jobs = []
+    data = []
 
-    driver = get_driver()
-    wait = WebDriverWait(driver, 30)
+    with sync_playwright() as p:
+        browser = p.chromium.launch(
+            headless=True,  # ✅ browser UI band rahega
+            args=[
+                "--disable-blink-features=AutomationControlled",
+                "--no-sandbox",
+                "--disable-dev-shm-usage"
+            ]
+        )
 
-    try:
-        driver.get(CAREERS_URL)
-        wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
+        context = browser.new_context(
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
+            viewport={"width": 1920, "height": 1080}
+        )
+
+        page = context.new_page()
+
+        # stealth
+        page.add_init_script("""
+            Object.defineProperty(navigator, 'webdriver', {
+                get: () => undefined
+            })
+        """)
+
+        print("🔍 Opening C40 page...")
+        page.goto(C40_RFP_URL, timeout=60000)
+
+        time.sleep(5)
+        page.mouse.wheel(0, 3000)
         time.sleep(3)
 
-        soup = BeautifulSoup(driver.page_source, "html.parser")
+        soup = BeautifulSoup(page.content(), "html.parser")
 
-        job_links = []
+        rfp_cards = soup.select("a.link-cards-item")
+        print(f"✅ Found {len(rfp_cards)} RFPs")
 
-        for a in soup.select("a[href^='/careers/']"):
-            href = a.get("href")
-            title = a.get_text(strip=True)
+        for card in rfp_cards:
+            try:
+                title_tag = card.select_one("h3.link-cards-item__heading")
+                deadline_tag = card.select_one("h4.link-cards-item__subheading")
+                link = card.get("href")
 
-            if href and title:
-                job_links.append((BASE_URL + href, title))
+                title = title_tag.get_text(strip=True) if title_tag else "N/A"
+                deadline = deadline_tag.get_text(strip=True) if deadline_tag else "N/A"
 
-        job_links = list(dict.fromkeys(job_links))
+                description = f"{title} {deadline}"
 
-        for job_url, fallback_title in job_links:
-            driver.get(job_url)
-            wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
-            time.sleep(2)
+                matched_vertical = match_verticals(title, description)
 
-            job_soup = BeautifulSoup(driver.page_source, "html.parser")
+                # ✅ Only include if at least 1 keyword matched
+                if matched_vertical == "N/A":
+                    continue
 
-            title_tag = job_soup.find("h3")
-            title = title_tag.get_text(strip=True) if title_tag else fallback_title
+                data.append({
+                    "Title": title,
+                    "Description": description,
+                    "Matched_Vertical": matched_vertical,
+                    "Deadline": deadline,
+                    "Apply_Link": link
+                })
 
-            desc_container = job_soup.find("div", class_="BambooRichText")
+                print(f"✔️ {title} → {matched_vertical}")
 
-            if not desc_container:
-                continue
+            except Exception as e:
+                print(f"⚠️ Error: {e}")
 
-            description = desc_container.get_text(separator="\n", strip=True)
-            deadline = extract_application_process(desc_container)
+        browser.close()
 
-            matched_vertical = match_verticals(title, description, keywords)
-
-            jobs.append({
-                "Title": title,
-                "Description": description,
-                "Matched_Vertical": matched_vertical,
-                "Deadline": deadline,
-                "Apply_Link": job_url
-            })
-
-    finally:
-        driver.quit()
-
-    if not jobs:
-        print("❌ No C40 jobs extracted")
+    # ======================================================
+    # DATAFRAME
+    # ======================================================
+    if not data:
+        print("❌ No relevant data found")
         return pd.DataFrame(columns=[
             "Title", "Description", "Matched_Vertical", "Deadline", "Apply_Link"
         ])
 
-    df = pd.DataFrame(jobs)
+    df = pd.DataFrame(data)
 
-    print(f"✅ C40 scraping completed, {len(df)} jobs found")
+    print(f"✅ Final records: {len(df)}")
     return df
+
+
+# ======================================================
+# RUN
+# ======================================================
+if __name__ == "__main__":
+    df = scrape_c40_jobs()
+
+    # ✅ save output
+    if not df.empty:
+        file_path = "c40_output.xlsx"
+        df.to_excel(file_path, index=False)
+        print(f"📁 Saved to {file_path}")
