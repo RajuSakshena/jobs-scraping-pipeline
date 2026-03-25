@@ -32,15 +32,20 @@ jobs:
           python-version: "3.11"
           cache: "pip"
 
-      # 3️⃣ Install Google Chrome
-      - name: Install Chrome
-        uses: browser-actions/setup-chrome@v1
-
-      # 4️⃣ Install Dependencies
+      # 3️⃣ Install Dependencies
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements-action.txt
+
+      # 🔥 4️⃣ INSTALL PLAYWRIGHT BROWSERS (MOST IMPORTANT)
+      - name: Install Playwright Browsers
+        run: |
+          playwright install --with-deps
+
+      # (Optional but safe)
+      - name: Verify Playwright
+        run: playwright --version
 
       # 5️⃣ Run Scraper
       - name: Run Scrapers
