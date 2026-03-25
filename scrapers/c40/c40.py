@@ -46,7 +46,7 @@ KEYWORDS = {
 }
 
 # ======================================================
-# MATCHING LOGIC (1 keyword enough)
+# MATCHING LOGIC
 # ======================================================
 def match_verticals(title, description):
     text = f"{title} {description}".lower()
@@ -62,6 +62,23 @@ def match_verticals(title, description):
 
 
 # ======================================================
+# SELECTOR ATTEMPTS — tries multiple known selectors
+# ======================================================
+SELECTORS_TO_TRY = [
+    "a.link-cards-item",
+    "a[class*='link-cards']",
+    "a[class*='card']",
+    ".rfp-item a",
+    "article a",
+    "a[href*='work-with-c40']",
+    "[class*='cards'] a",
+    "[class*='listing'] a",
+    "[class*='rfp'] a",
+    "main a[href]",
+]
+
+
+# ======================================================
 # MAIN SCRAPER
 # ======================================================
 def scrape_c40_jobs():
@@ -72,75 +89,142 @@ def scrape_c40_jobs():
             headless=True,
             args=[
                 "--no-sandbox",
-                "--disable-dev-shm-usage"
+                "--disable-dev-shm-usage",
+                "--disable-gpu",
+                "--disable-setuid-sandbox",
+                "--disable-blink-features=AutomationControlled",
+                "--window-size=1920,1080",
             ]
         )
 
         context = browser.new_context(
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-            viewport={"width": 1920, "height": 1080}
+            user_agent=(
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/122.0.0.0 Safari/537.36"
+            ),
+            viewport={"width": 1920, "height": 1080},
+            java_script_enabled=True,
+            ignore_https_errors=True,
+            # Mimic real browser headers
+            extra_http_headers={
+                "Accept-Language": "en-US,en;q=0.9",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            }
         )
 
         page = context.new_page()
 
+        # ✅ Mask webdriver property to avoid bot detection
+        page.add_init_script("""
+            Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+            window.chrome = { runtime: {} };
+            Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3] });
+        """)
+
         print("🔍 Opening C40 page...")
 
-        # ✅ FIXED: NO networkidle
-        page.goto(C40_RFP_URL, timeout=60000, wait_until="domcontentloaded")
+        try:
+            page.goto(C40_RFP_URL, timeout=60000, wait_until="networkidle")
+        except Exception as e:
+            print(f"⚠ networkidle timed out, trying domcontentloaded... ({e})")
+            try:
+                page.goto(C40_RFP_URL, timeout=60000, wait_until="domcontentloaded")
+            except Exception as e2:
+                print(f"❌ Page load failed: {e2}")
+                browser.close()
+                return pd.DataFrame(columns=["Title", "Description", "Matched_Vertical", "Deadline", "Apply_Link"])
 
-        # ✅ wait for JS rendering
-        page.wait_for_timeout(8000)
+        # ✅ Multi-stage scroll to trigger lazy loading
+        print("📜 Scrolling to trigger lazy loading...")
+        for _ in range(8):
+            page.mouse.wheel(0, 3000)
+            time.sleep(1.5)
+
+        # Scroll back up then down (mimics real user)
+        page.mouse.wheel(0, -10000)
+        time.sleep(1)
+        for _ in range(8):
+            page.mouse.wheel(0, 3000)
+            time.sleep(1)
+
+        time.sleep(3)
 
         # ======================================================
-        # 🔥 RETRY + SCROLL (CRITICAL FOR GITHUB)
+        # 🔥 DEBUG: Print page HTML snippet to see what loaded
+        # ======================================================
+        html_snippet = page.content()[:3000]
+        print("🔎 Page HTML snippet (first 3000 chars):")
+        print(html_snippet)
+        print("--- END SNIPPET ---")
+
+        # ======================================================
+        # 🔥 TRY MULTIPLE SELECTORS
         # ======================================================
         cards = None
+        matched_selector = None
 
-        for attempt in range(6):
-            print(f"🔄 Attempt {attempt + 1}")
+        for selector in SELECTORS_TO_TRY:
+            try:
+                count = page.locator(selector).count()
+                print(f"   Selector '{selector}' → {count} elements")
+                if count > 0:
+                    cards = page.locator(selector)
+                    matched_selector = selector
+                    break
+            except Exception as e:
+                print(f"   ⚠ Selector '{selector}' error: {e}")
 
-            page.evaluate("window.scrollBy(0, document.body.scrollHeight)")
-            page.wait_for_timeout(3000)
+        if cards is None or cards.count() == 0:
+            print("❌ No cards found with any selector")
+            # ✅ Dump all <a> tags as last resort debug
+            all_links = page.locator("a[href]").all()
+            print(f"🔗 Total <a> tags found on page: {len(all_links)}")
+            for a in all_links[:20]:
+                try:
+                    href = a.get_attribute("href")
+                    txt = a.inner_text().strip()[:80]
+                    print(f"   → {txt} | {href}")
+                except:
+                    pass
 
-            cards = page.locator("a.link-cards-item")
-            count = cards.count()
-
-            print(f"👉 Found {count} cards")
-
-            if count > 0:
-                break
-
-        # ❌ if still nothing
-        if not cards or cards.count() == 0:
-            print("❌ No cards found after retries")
             browser.close()
-            return pd.DataFrame(columns=[
-                "Title", "Description", "Matched_Vertical", "Deadline", "Apply_Link"
-            ])
+            return pd.DataFrame(columns=["Title", "Description", "Matched_Vertical", "Deadline", "Apply_Link"])
 
-        print(f"✅ Final Found {cards.count()} RFPs")
+        count = cards.count()
+        print(f"✅ Found {count} cards using selector: '{matched_selector}'")
 
         # ======================================================
-        # EXTRACT DATA
+        # EXTRACT DATA FROM CARDS
         # ======================================================
-        for i in range(cards.count()):
+        for i in range(count):
             try:
                 card = cards.nth(i)
 
-                title = card.locator("h3").inner_text(timeout=5000) if card.locator("h3").count() > 0 else "N/A"
-                deadline = card.locator("h4").inner_text(timeout=5000) if card.locator("h4").count() > 0 else "N/A"
-                link = card.get_attribute("href")
+                # Try h3 for title, fallback to full text
+                if card.locator("h3").count() > 0:
+                    title = card.locator("h3").inner_text().strip()
+                elif card.locator("h2").count() > 0:
+                    title = card.locator("h2").inner_text().strip()
+                else:
+                    title = card.inner_text().strip()[:120]
 
-                # fix relative links
-                if link and link.startswith("/"):
+                if not title or title == "N/A":
+                    continue
+
+                # Try h4 for deadline
+                deadline = card.locator("h4").inner_text().strip() if card.locator("h4").count() > 0 else "N/A"
+
+                # Get link
+                link = card.get_attribute("href") or ""
+                if link.startswith("/"):
                     link = "https://www.c40.org" + link
 
                 description = f"{title} {deadline}"
-
                 matched_vertical = match_verticals(title, description)
 
-                # ✅ skip if no keyword match
                 if matched_vertical == "N/A":
+                    print(f"   ⏭ Skipped (no vertical match): {title[:60]}")
                     continue
 
                 data.append({
@@ -151,10 +235,10 @@ def scrape_c40_jobs():
                     "Apply_Link": link
                 })
 
-                print(f"✔️ {title} → {matched_vertical}")
+                print(f"✔️ {title[:80]} → {matched_vertical}")
 
             except Exception as e:
-                print(f"⚠ Error: {e}")
+                print(f"⚠ Error on card {i}: {e}")
 
         browser.close()
 
@@ -162,13 +246,10 @@ def scrape_c40_jobs():
     # DATAFRAME
     # ======================================================
     if not data:
-        print("❌ No relevant data found")
-        return pd.DataFrame(columns=[
-            "Title", "Description", "Matched_Vertical", "Deadline", "Apply_Link"
-        ])
+        print("❌ No relevant data found after matching")
+        return pd.DataFrame(columns=["Title", "Description", "Matched_Vertical", "Deadline", "Apply_Link"])
 
     df = pd.DataFrame(data)
-
     print(f"✅ Final records: {len(df)}")
     return df
 
