@@ -67,102 +67,99 @@ def match_verticals(title, description):
 
 
 # ======================================================
-# FETCH HTML — curl_cffi Chrome impersonation
+# FETCH HTML — curl_cffi
 # ======================================================
 def fetch_html(url):
 
-    # ✅ METHOD 1: curl_cffi — Chrome TLS fingerprint mimic (best for Cloudflare)
     if CURL_CFFI_AVAILABLE:
-        print("🔑 Using curl_cffi Chrome impersonation...")
+        print("🔑 Using curl_cffi (Cloudflare bypass)...")
         try:
-            session = cf_requests.Session(impersonate="chrome120")
+            session = cf_requests.Session(impersonate="chrome124")
 
-            # Hit homepage first to get cookies
+            # Get cookies first
             session.get("https://www.c40.org/", timeout=30)
             time.sleep(2)
 
-            resp = session.get(url, timeout=30)
+            # Retry logic
+            for attempt in range(3):
+                try:
+                    resp = session.get(url, timeout=30)
 
-            if resp.status_code == 200 and "Just a moment" not in resp.text:
-                print("✅ curl_cffi fetch successful!")
-                return resp.text
-            else:
-                print(f"⚠ curl_cffi got status {resp.status_code} or Cloudflare page")
+                    if resp.status_code == 200 and "Just a moment" not in resp.text:
+                        print(f"✅ Success on attempt {attempt+1}")
+                        return resp.text
+                    else:
+                        print(f"⚠ Attempt {attempt+1} blocked")
+
+                except Exception as e:
+                    print(f"⚠ Attempt {attempt+1} error: {e}")
+
+                time.sleep(3)
+
         except Exception as e:
             print(f"⚠ curl_cffi error: {e}")
 
-    # ✅ METHOD 2: Plain requests fallback (works locally if cookies cached)
-    print("🔄 Trying plain requests fallback...")
+    # Fallback
+    print("🔄 Trying fallback requests...")
     try:
         import requests as req
         headers = {
-            "User-Agent": (
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/122.0.0.0 Safari/537.36"
-            ),
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Accept-Language": "en-US,en;q=0.9",
+            "User-Agent": "Mozilla/5.0",
         }
-        session2 = req.Session()
-        session2.get("https://www.c40.org/", headers=headers, timeout=30)
-        time.sleep(2)
-        resp2 = session2.get(url, headers=headers, timeout=30)
-        if resp2.status_code == 200 and "Just a moment" not in resp2.text:
-            print("✅ Plain requests fetch successful")
-            return resp2.text
-        else:
-            print(f"⚠ Plain requests also blocked ({resp2.status_code})")
+        resp = req.get(url, headers=headers, timeout=30)
+        if resp.status_code == 200:
+            return resp.text
     except Exception as e:
-        print(f"⚠ Plain requests error: {e}")
+        print(f"⚠ fallback error: {e}")
 
     return None
 
 
 # ======================================================
-# PARSE CARDS FROM HTML
+# PARSE
 # ======================================================
 def parse_cards(html):
     soup = BeautifulSoup(html, "html.parser")
     data = []
+    seen_links = set()
 
-    # Try selectors one by one
     cards = soup.find_all("a", class_=lambda c: c and "link-cards-item" in c)
 
     if not cards:
-        cards = soup.find_all(
-            "a", class_=lambda c: c and "card" in " ".join(c).lower() if c else False
-        )
+        cards = soup.find_all("a")
 
-    if not cards:
-        main = soup.find("main") or soup.find("body")
-        if main:
-            cards = [
-                a for a in main.find_all("a", href=True)
-                if len(a.get_text(strip=True)) > 20
-            ]
-
-    print(f"📦 Found {len(cards)} cards to parse")
+    print(f"📦 Found {len(cards)} elements")
 
     for card in cards:
         try:
-            h3 = card.find("h3") or card.find("h2") or card.find("h4")
-            title = h3.get_text(strip=True) if h3 else card.get_text(strip=True)[:120]
-            if not title:
+            title_tag = card.find(["h2", "h3", "h4"])
+            title = title_tag.get_text(strip=True) if title_tag else None
+
+            if not title or len(title) < 10:
                 continue
 
-            all_h4 = card.find_all("h4")
-            deadline = all_h4[0].get_text(strip=True) if all_h4 else "N/A"
+            link = card.get("href", "")
+            if not link:
+                continue
 
-            link = card.get("href") or ""
             if link.startswith("/"):
                 link = "https://www.c40.org" + link
 
-            description = f"{title} {deadline}"
-            matched_vertical = match_verticals(title, description)
-
-            if matched_vertical == "N/A":
+            if link in seen_links:
                 continue
+            seen_links.add(link)
+
+            # Better description
+            desc_text = card.get_text(" ", strip=True)
+            description = desc_text[:300]
+
+            # Deadline extract
+            deadline = "N/A"
+            h4s = card.find_all("h4")
+            if h4s:
+                deadline = h4s[0].get_text(strip=True)
+
+            matched_vertical = match_verticals(title, description)
 
             data.append({
                 "Title": title,
@@ -171,7 +168,8 @@ def parse_cards(html):
                 "Deadline": deadline,
                 "Apply_Link": link
             })
-            print(f"✔️ {title[:80]} → {matched_vertical}")
+
+            print(f"✔ {title[:60]} → {matched_vertical}")
 
         except Exception as e:
             print(f"⚠ Parse error: {e}")
@@ -180,32 +178,29 @@ def parse_cards(html):
 
 
 # ======================================================
-# MAIN SCRAPER
+# MAIN
 # ======================================================
 def scrape_c40_jobs():
-    print("🔍 Opening C40 page...")
-
-    if not CURL_CFFI_AVAILABLE:
-        print("⚠ curl_cffi not installed — install it: pip install curl_cffi")
+    print("🔍 Scraping C40...")
 
     html = fetch_html(C40_RFP_URL)
 
     if not html:
-        print("❌ Could not fetch C40 page")
-        return pd.DataFrame(columns=["Title", "Description", "Matched_Vertical", "Deadline", "Apply_Link"])
+        print("❌ Failed to fetch page")
+        return pd.DataFrame()
 
     if "Just a moment" in html:
-        print("❌ Cloudflare still blocking — curl_cffi may need update")
-        return pd.DataFrame(columns=["Title", "Description", "Matched_Vertical", "Deadline", "Apply_Link"])
+        print("❌ Still blocked by Cloudflare")
+        return pd.DataFrame()
 
     data = parse_cards(html)
 
     if not data:
-        print("❌ No relevant data found after matching")
-        return pd.DataFrame(columns=["Title", "Description", "Matched_Vertical", "Deadline", "Apply_Link"])
+        print("❌ No data found")
+        return pd.DataFrame()
 
     df = pd.DataFrame(data)
-    print(f"✅ Final records: {len(df)}")
+    print(f"✅ Total records: {len(df)}")
     return df
 
 
@@ -214,6 +209,10 @@ def scrape_c40_jobs():
 # ======================================================
 if __name__ == "__main__":
     df = scrape_c40_jobs()
+
     if not df.empty:
-        df.to_excel("c40_output.xlsx", index=False)
-        print("📁 Saved to c40_output.xlsx")
+        import os
+        os.makedirs("output", exist_ok=True)
+
+        df.to_excel("output/c40_output.xlsx", index=False)
+        print("📁 Saved: output/c40_output.xlsx")
