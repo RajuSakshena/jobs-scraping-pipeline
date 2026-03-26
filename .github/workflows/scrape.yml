@@ -12,13 +12,12 @@ concurrency:
 jobs:
   scrape:
     runs-on: ubuntu-latest
-    timeout-minutes: 30   # ⏱ Increased (Playwright needs time)
+    timeout-minutes: 30
 
     permissions:
       contents: write
 
     steps:
-
       # 1️⃣ Checkout Repository
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -32,44 +31,56 @@ jobs:
           python-version: "3.11"
           cache: "pip"
 
-      # 3️⃣ Install Dependencies
+      # 3️⃣ Install OS Dependencies (Required for Stealth/XVFB)
+      - name: Install OS Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libgbm-dev
+
+      # 4️⃣ Install Python Dependencies
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements-action.txt
+          # Explicitly install stealth if not in requirements
+          pip install playwright-stealth 
 
-      # 🔥 4️⃣ Install Playwright Browsers (CRITICAL FIX)
+      # 🔥 5️⃣ Install Playwright Browsers with System Deps
       - name: Install Playwright Browsers
         run: |
-          python -m playwright install --with-deps
+          python -m playwright install chromium --with-deps
 
-      # ✅ 5️⃣ Verify curl_cffi Installed (optional but safe)
-      - name: Verify curl_cffi
-        run: |
-          python -c "import curl_cffi; print('curl_cffi installed successfully')"
-
-      # 🚀 6️⃣ Run Scraper
+      # 🚀 6️⃣ Run Scraper with XVFB (The Fix for Detection)
       - name: Run Scrapers
+        env:
+          DISPLAY: :99
         run: |
-          echo "Starting job scrapers..."
+          echo "Starting job scrapers in stealth mode..."
+          # xvfb-run virtual display provide karta hai jo captcha bypass mein help karta hai
+          xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" \
           python runner.py
           echo "Scraping completed successfully."
 
-      # 📦 7️⃣ Upload Output as Artifact
+      # 📦 7️⃣ Upload Output as Artifact (Optional Debugging)
       - name: Upload Output Files
-        if: success()
+        if: always() # Success ho ya fail, screenshot/output mil jaye
         uses: actions/upload-artifact@v4
         with:
           name: job-scraper-output
-          path: output/
+          path: |
+            output/
+            debug_screenshot.png
 
       # 💾 8️⃣ Commit & Push Updated Excel
       - name: Commit & Push Combined.xlsx
         run: |
-          git config user.name "github-actions"
-          git config user.email "actions@github.com"
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-          git add output/Combined.xlsx
+          # Ensure output directory exists
+          mkdir -p output
+          
+          git add output/Combined.xlsx || true
 
           if git diff --staged --quiet; then
             echo "No changes detected."
