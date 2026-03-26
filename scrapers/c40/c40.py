@@ -1,79 +1,53 @@
+import os
 import time
+import json
 import re
 import pandas as pd
+from bs4 import BeautifulSoup
 from playwright.sync_api import sync_playwright
 
 # ======================================================
-# CONFIG
+# PATH SETUP
 # ======================================================
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+KEYWORDS_FILE = os.path.join(BASE_DIR, "keywords.json")
+
 C40_RFP_URL = "https://www.c40.org/work-with-c40/"
 
-# ======================================================
-# KEYWORDS
-# ======================================================
-KEYWORDS = {
-    "Governance": [
-        "governance", "policy", "capacity building", "municipal", "m&e",
-        "monitoring and evaluation", "social audits", "fundraising",
-        "management", "consulting", "consultant", "consultancy",
-        "administration", "public", "government", "capacity",
-        "impact", "evaluation", "dashboard", "data",
-        "strategy", "framework", "tool", "technology",
-        "knowledge", "csr", "philanthropy", "business",
-        "entrepreneurship", "entrepreneurs", "shg",
-        "development", "urban", "infrastructure", "city",
-        "housing", "parks", "planning", "guidelines",
-        "implementation", "technical assistance",
-        "project", "program", "scheme"
-    ],
-    "Learning": [
-        "education", "skill", "skills", "training", "life skills",
-        "tvet", "student", "learning by doing",
-        "teaching", "curriculum", "schools", "colleges",
-        "educational institutes", "ai", "skilling",
-        "digital learning", "edtech"
-    ],
-    "Safety": [
-        "gender", "women", "equity", "safety", "mobility",
-        "sexual", "health", "security", "protection",
-        "child", "children", "lgbtq", "wellbeing", "wash"
-    ],
-    "Climate": [
-        "climate", "resilience", "environment", "disaster",
-        "sustainability", "green", "renewable", "energy",
-        "pollution", "waste", "sanitation", "flood", "heat"
-    ]
-}
 
 # ======================================================
-# MATCHING LOGIC
+# HELPERS
 # ======================================================
-def match_verticals(title, description):
+def load_keywords():
+    with open(KEYWORDS_FILE, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def match_verticals(title, description, keywords):
     text = f"{title} {description}".lower()
     matched = []
-
-    for vertical, words in KEYWORDS.items():
-        for w in set(words):
+    for vertical, words in keywords.items():
+        for w in words:
             if re.search(rf"\b{re.escape(w.lower())}\b", text):
                 matched.append(vertical)
                 break
-
     return ", ".join(matched) if matched else "N/A"
 
 
 # ======================================================
-# MAIN SCRAPER
+# MAIN SCRAPER (RFP VERSION)
 # ======================================================
 def scrape_c40_jobs():
+    keywords = load_keywords()
     data = []
 
     with sync_playwright() as p:
         browser = p.chromium.launch(
             headless=True,
             args=[
+                "--disable-blink-features=AutomationControlled",
                 "--no-sandbox",
-                "--disable-dev-shm-usage",
-                "--disable-blink-features=AutomationControlled"
+                "--disable-dev-shm-usage"
             ]
         )
 
@@ -84,109 +58,64 @@ def scrape_c40_jobs():
 
         page = context.new_page()
 
-        print("🔍 Opening C40 page...")
-        page.goto(C40_RFP_URL, timeout=60000, wait_until="networkidle")
+        # stealth
+        page.add_init_script("""
+            Object.defineProperty(navigator, 'webdriver', {
+                get: () => undefined
+            })
+        """)
 
-        # ✅ Extra wait for JS render
+        print("🔍 Opening C40 RFP page...")
+        page.goto(C40_RFP_URL, timeout=60000)
+
         time.sleep(5)
+        page.mouse.wheel(0, 3000)
+        time.sleep(3)
 
-        # ✅ Scroll to load all cards (important for GitHub Actions)
-        for i in range(8):
-            page.mouse.wheel(0, 6000)
-            time.sleep(2)
+        soup = BeautifulSoup(page.content(), "html.parser")
 
-        # ✅ Ensure elements are loaded
-        try:
-            page.wait_for_selector("a.link-cards-item", timeout=20000)
-        except:
-            print("⚠ Selector not found — retrying after delay...")
-            time.sleep(5)
+        rfp_cards = soup.select("a.link-cards-item")
+        print(f"✅ Found {len(rfp_cards)} RFPs")
 
-        # ======================================================
-        # 🔥 MAIN EXTRACTION
-        # ======================================================
-        cards = page.locator("a.link-cards-item")
-        count = cards.count()
-
-        print(f"📦 Total cards found: {count}")
-
-        for i in range(count):
+        for card in rfp_cards:
             try:
-                card = cards.nth(i)
+                title_tag = card.select_one("h3.link-cards-item__heading")
+                deadline_tag = card.select_one("h4.link-cards-item__subheading")
+                link = card.get("href")
 
-                # ✅ Title
-                title = (
-                    card.locator("h3").inner_text().strip()
-                    if card.locator("h3").count() > 0
-                    else "N/A"
-                )
+                title = title_tag.get_text(strip=True) if title_tag else "N/A"
+                deadline = deadline_tag.get_text(strip=True) if deadline_tag else "N/A"
 
-                # ✅ Deadline
-                deadline = (
-                    card.locator("h4").inner_text().strip()
-                    if card.locator("h4").count() > 0
-                    else "N/A"
-                )
+                # 👉 Description banate hain (since RFP me full desc nahi hota)
+                description = f"{title}\n{deadline}"
 
-                # ✅ Link
-                link = card.get_attribute("href")
-
-                if link and link.startswith("/"):
-                    link = "https://www.c40.org" + link
-
-                description = f"{title} {deadline}"
-
-                # ✅ Keyword match
-                matched_vertical = match_verticals(title, description)
-
-                if matched_vertical == "N/A":
-                    continue
+                matched_vertical = match_verticals(title, description, keywords)
 
                 data.append({
                     "Title": title,
                     "Description": description,
                     "Matched_Vertical": matched_vertical,
                     "Deadline": deadline,
-                    "Apply_Link": link,
-                    "Source": "C40"
+                    "Apply_Link": link
                 })
 
-                print(f"✔️ {title} → {matched_vertical}")
+                print(f"✔️ {title}")
 
             except Exception as e:
-                print(f"⚠ Error in card {i}: {e}")
+                print(f"⚠️ Error: {e}")
 
         browser.close()
 
     # ======================================================
-    # REMOVE DUPLICATES
+    # RETURN DATAFRAME (IMPORTANT FOR runner.py)
     # ======================================================
-    unique_data = {item["Apply_Link"]: item for item in data if item["Apply_Link"]}
-    final_data = list(unique_data.values())
-
-    # ======================================================
-    # DATAFRAME
-    # ======================================================
-    if not final_data:
-        print("❌ No relevant data found")
+    if not data:
+        print("❌ No C40 RFP extracted")
         return pd.DataFrame(columns=[
-            "Title", "Description", "Matched_Vertical",
-            "Deadline", "Apply_Link", "Source"
+            "Title", "Description", "Matched_Vertical", "Deadline", "Apply_Link"
         ])
 
-    df = pd.DataFrame(final_data)
+    df = pd.DataFrame(data)
 
-    print(f"✅ Final records after filtering: {len(df)}")
+    print(f"✅ C40 RFP scraping completed, {len(df)} records found")
     return df
-
-
-# ======================================================
-# RUN
-# ======================================================
-if __name__ == "__main__":
-    df = scrape_c40_jobs()
-
-    if not df.empty:
-        file_path = "c40_output.xlsx"
-        df.to_excel(file_path, index=False)
-        print(f"📁 Saved to {file_path}")
