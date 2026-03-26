@@ -3,6 +3,4 @@ beautifulsoup4
 pandas
 openpyxl
 playwright
-curl_cffi
 requests
-playwright-stealth
