@@ -23,14 +23,23 @@ def load_keywords():
         return json.load(f)
 
 
+# 🔥 STRICT MATCHING LOGIC
 def match_verticals(title, description, keywords):
     text = f"{title} {description}".lower()
     matched = []
+
     for vertical, words in keywords.items():
-        for w in words:
+        count = 0
+        unique_words = set(words)
+
+        for w in unique_words:
             if re.search(rf"\b{re.escape(w.lower())}\b", text):
-                matched.append(vertical)
-                break
+                count += 1
+
+        # ✅ STRICT CONDITION (minimum 2 keyword match)
+        if count >= 2:
+            matched.append(vertical)
+
     return ", ".join(matched) if matched else "N/A"
 
 
@@ -86,7 +95,6 @@ def scrape_c40_jobs():
                 title = title_tag.get_text(strip=True) if title_tag else "N/A"
                 deadline = deadline_tag.get_text(strip=True) if deadline_tag else "N/A"
 
-                # 👉 Description banate hain (since RFP me full desc nahi hota)
                 description = f"{title}\n{deadline}"
 
                 matched_vertical = match_verticals(title, description, keywords)
@@ -99,7 +107,7 @@ def scrape_c40_jobs():
                     "Apply_Link": link
                 })
 
-                print(f"✔️ {title}")
+                print(f"✔️ {title} → {matched_vertical}")
 
             except Exception as e:
                 print(f"⚠️ Error: {e}")
@@ -107,7 +115,7 @@ def scrape_c40_jobs():
         browser.close()
 
     # ======================================================
-    # RETURN DATAFRAME (IMPORTANT FOR runner.py)
+    # RETURN DATAFRAME
     # ======================================================
     if not data:
         print("❌ No C40 RFP extracted")
