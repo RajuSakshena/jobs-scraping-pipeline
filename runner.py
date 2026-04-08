@@ -8,6 +8,7 @@ from openpyxl.styles import Alignment
 from scrapers.estm.estm import scrape_jobs as scrape_estm_jobs
 from scrapers.c40.c40 import scrape_c40_jobs
 from scrapers.developmentaid.developmentaid import scrape_jobs as scrape_developmentaid_jobs
+from scrapers.onepurpose import scrape_onepurpose_jobs  # ✅ NEW
 
 
 # ======================================================
@@ -67,7 +68,6 @@ def clean_link(link):
 
     link = link.strip()
 
-    # Extract URL from Excel hyperlink if present
     if 'HYPERLINK(' in link:
         match = re.search(r'HYPERLINK\("([^"]+)"', link)
         if match:
@@ -77,7 +77,7 @@ def clean_link(link):
 
 
 # ======================================================
-# SAFE DESCRIPTION HANDLER (🔥 FIX)
+# CLEAN DESCRIPTION FUNCTION
 # ======================================================
 
 def clean_description(desc):
@@ -154,6 +154,34 @@ def run_all_scrapers_and_combine():
 
 
         # ======================================================
+        # ONEPURPOSE SCRAPER ✅ NEW
+        # ======================================================
+
+        try:
+            print("🔎 Running OnePurpose scraper...")
+            op_df = scrape_onepurpose_jobs()
+
+            if op_df is not None and not op_df.empty:
+                for _, row in op_df.iterrows():
+                    combined_rows.append({
+                        "Source": "OnePurpose",
+                        "Title": row.get("Title"),
+                        "Description": clean_description(row.get("Description")),
+                        "Matched_Vertical": row.get("Matched_Vertical"),
+                        "Deadline": row.get("Deadline"),
+                        "Apply_Link": clean_link(row.get("Apply_Link"))
+                    })
+
+                print(f"✅ OnePurpose rows added: {len(op_df)}")
+            else:
+                print("⚠ OnePurpose returned no data")
+
+        except Exception:
+            print("❌ OnePurpose failed")
+            traceback.print_exc()
+
+
+        # ======================================================
         # DevelopmentAid SCRAPER
         # ======================================================
 
@@ -166,7 +194,7 @@ def run_all_scrapers_and_combine():
                     combined_rows.append({
                         "Source": "DevelopmentAid",
                         "Title": row.get("Title"),
-                        "Description": clean_description(row.get("Description")),  # 🔥 FIX APPLIED
+                        "Description": clean_description(row.get("Description")),
                         "Matched_Vertical": row.get("Category"),
                         "Deadline": row.get("Deadline"),
                         "Apply_Link": clean_link(row.get("Apply_Link"))
