@@ -8,7 +8,7 @@ from openpyxl.styles import Alignment
 from scrapers.estm.estm import scrape_jobs as scrape_estm_jobs
 from scrapers.c40.c40 import scrape_c40_jobs
 from scrapers.developmentaid.developmentaid import scrape_jobs as scrape_developmentaid_jobs
-from scrapers.onepurpose import scrape_onepurpose_jobs  # ✅ NEW
+from scrapers.onepurpos import scrape_onepurpose_jobs  # ✅ NEW
 
 
 # ======================================================
