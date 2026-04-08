@@ -164,7 +164,7 @@ def run_all_scrapers_and_combine():
             if op_df is not None and not op_df.empty:
                 for _, row in op_df.iterrows():
                     combined_rows.append({
-                        "Source": "OnePurpose",
+                        "Source": "onepurpos",
                         "Title": row.get("Title"),
                         "Description": clean_description(row.get("Description")),
                         "Matched_Vertical": row.get("Matched_Vertical"),
