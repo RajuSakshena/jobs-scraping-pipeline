@@ -158,7 +158,7 @@ def run_all_scrapers_and_combine():
         # ======================================================
 
         try:
-            print("🔎 Running OnePurpose scraper...")
+            print("🔎 Running OnePurpos scraper...")
             op_df = scrape_onepurpose_jobs()
 
             if op_df is not None and not op_df.empty:
@@ -172,12 +172,12 @@ def run_all_scrapers_and_combine():
                         "Apply_Link": clean_link(row.get("Apply_Link"))
                     })
 
-                print(f"✅ OnePurpose rows added: {len(op_df)}")
+                print(f"✅ OnePurpos rows added: {len(op_df)}")
             else:
-                print("⚠ OnePurpose returned no data")
+                print("⚠ OnePurpos returned no data")
 
         except Exception:
-            print("❌ OnePurpose failed")
+            print("❌ OnePurpos failed")
             traceback.print_exc()
 
 
